@@ -1,0 +1,331 @@
+//Mappable types:
+//2,1005,http://autsys.aalto.fi/ClafisFinalProto/
+//End of mappable types
+
+//ISOBUS NODES
+//2,1002,http://autsys.aalto.fi/ClafisFinalProto/
+
+//0,61,general
+//0,2004,general
+//2,1002,general2
+//2,1002,general3
+
+//created on: 11.2.2015
+package com.prosysopc.ua.samples.server
+
+import com.prosysopc.ua.nodes.UaNode;
+import org.opcfoundation.ua.builtintypes.NodeId
+import com.prosysopc.ua.types.opcua.server.BaseObjectTypeNode;
+import com.prosysopc.ua.types.opcua.server.FolderTypeNode;
+import java.util.UUID;
+import org.opcfoundation.ua.core.Identifiers;
+import com.prosysopc.ua.client.AddressSpace;
+import fi.opc.ua.server.DUaNode;
+import fi.opc.ua.server.ASNodeManager;
+import fi.opc.ua.rules.RuleLibrary;
+import com.prosysopc.ua.nodes.UaVariable;
+import com.prosysopc.ua.server.nodes.CacheVariable;
+import com.prosysopc.ua.server.nodes.CacheProperty;
+import com.prosysopc.ua.nodes.UaReference;
+import org.opcfoundation.ua.builtintypes.LocalizedText;
+import org.opcfoundation.ua.builtintypes.QualifiedName;
+import java.util.Locale;
+import java.util.List;
+import org.opcfoundation.ua.builtintypes.DataValue;
+import org.opcfoundation.ua.builtintypes.DateTime;
+import com.prosysopc.ua.nodes.UaProperty;
+import com.prosysopc.ua.server.nodes.BaseNode;
+//list any import classes here.
+
+
+
+//declare any global variables here
+global com.prosysopc.ua.nodes.UaNode entryNode;
+global org.opcfoundation.ua.builtintypes.NodeId hasComponentId;
+global org.opcfoundation.ua.builtintypes.NodeId organizesId;
+global org.opcfoundation.ua.builtintypes.NodeId hasTypeDefId;
+global java.util.HashMap IdMap;
+
+declare ruleFired
+   isFired : String
+end
+
+rule "TEST: Create folder for server"
+	salience 15
+	agenda-group "general"
+    when
+    	n : DUaNode(typeDef.equals("ServerType"))
+		nm : ASNodeManager()
+    then
+    	UaProperty serverArray = n.getProperty(new QualifiedName(0,"ServerArray"));
+    	String serverName = serverArray.getValue().getValue().toString();
+    	NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+    	FolderTypeNode serverFolder = nm.createInstance(FolderTypeNode.class, serverName, newId);
+    	nm.addNodeAndReference(entryNode, serverFolder, Identifiers.Organizes);
+    	insert(serverFolder);
+    	delete(n);
+end
+
+rule "TEST: Map all variables to server folder"
+	salience 14
+	agenda-group "general"
+    when
+    	n : DUaNode(typeDef.equals("BaseDataVariableType"))
+    	nm : ASNodeManager()
+    	af : FolderTypeNode()
+    then
+    	NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+    	LocalizedText dispname = new LocalizedText(n.getDisplayName().getText() + "+", Locale.ENGLISH);
+        UaVariable mappedNode = new CacheVariable(nm, newId, new QualifiedName(nm.getNamespaceIndex(),n.getBrowseName().getName()), dispname);//new BaseObjectTypeNode(nm, newId, n.getBrowseName(), n.getDisplayName());
+        mappedNode.setAttributes(n.getAttributes());
+        ((BaseNode) mappedNode).initNodeVersion();
+        nm.addNodeAndReference(af, mappedNode, Identifiers.Organizes);
+        IdMap.put(newId, n.getNodeId());
+        delete(n);
+end
+
+
+
+
+
+
+rule "WRM 1: Map device as an asset folder using DUaNode"
+	salience 11
+	agenda-group "http://autsys.aalto.fi/ClafisFinalProto/"
+    when
+        n : DUaNode(typeDef.equals("ISOBUSDeviceType"), dispName : node.getDisplayName())
+        nm : ASNodeManager()
+    then
+        insert(RuleLibrary.CreateFolderTypeNode(nm, entryNode, dispName));
+        delete(n);
+end
+
+rule "WRM 1: Map J1939 device as an asset folder using DUaNode"
+	salience 12
+	agenda-group "http://autsys.aalto.fi/ClafisFinalProto/"
+    when
+        n : DUaNode(typeDef.equals("J1939DeviceType"), dispName : node.getDisplayName())
+        nm : ASNodeManager()
+    then
+        insert(RuleLibrary.CreateFolderTypeNode(nm, entryNode, dispName));
+        delete(n);
+end
+
+rule "WRM 2: Map device NAME"
+	salience 9
+	agenda-group "http://autsys.aalto.fi/ClafisFinalProto/"
+    when
+        n : DUaNode(typeDef.equals("NAMEType"), dispName : node.getDisplayName())
+        af : FolderTypeNode()
+        nm : ASNodeManager()
+    then
+    	RuleLibrary.AddVariable(nm, af, n, dispName);
+        delete (n);
+end
+
+
+rule "WRM 3: Map process data / parameter set contents one by one"
+	salience 8
+	agenda-group "http://autsys.aalto.fi/ClafisFinalProto/"
+	when
+		n : DUaNode()
+		af : FolderTypeNode()
+		nm : ASNodeManager()
+		orgref : UaReference(this.getSourceNode().getDisplayName().getText().equals("ParameterSet")) from n.getReferences(hasComponentId, true)
+	then
+		//IdMap.put(RuleLibrary.CreateNodeAndFolders(nm, af, n, orgref, hasComponentId, hasTypeDefId, organizesId), n.getNodeId());
+		IdMap.put(RuleLibrary.CreateNodeAndFlatted(nm, af, n, orgref, hasComponentId, hasTypeDefId), n.getNodeId());
+		delete(n);
+end
+
+
+
+
+// New rules for Aggregate Server rules update 22.07.2015
+
+rule "CAS 1: Map device as an asset folder using DUaNode"
+	salience 11
+	agenda-group "http://autsys.aalto.fi/ClafisAggregateServer/"
+    when
+        n : DUaNode(typeDef.equals("ISOBUSDeviceType"), dispName : node.getDisplayName())
+        nm : ASNodeManager()
+    then
+        insert(RuleLibrary.CreateFolderTypeNode(nm, entryNode, dispName));
+        delete(n);
+end
+
+rule "CAS 2: Map device NAME"
+	salience 9
+	agenda-group "http://autsys.aalto.fi/ClafisAggregateServer/"
+    when
+        n : DUaNode(typeDef.equals("NAMEType"), dispName : node.getDisplayName())
+        af : FolderTypeNode()
+        nm : ASNodeManager()
+    then
+    	RuleLibrary.AddVariable(nm, af, n, dispName);
+        delete (n);
+end
+
+
+rule "CAS 3: Map process data / parameter set contents one by one"
+	salience 8
+	agenda-group "http://autsys.aalto.fi/ClafisAggregateServer/"
+	when
+		n : DUaNode()
+		af : FolderTypeNode()
+		nm : ASNodeManager()
+		orgref : UaReference(this.getSourceNode().getDisplayName().getText().equals("ParameterSet")) from n.getReferences(hasComponentId, true)
+	then
+		IdMap.put(RuleLibrary.CreateNodeAndFolders(nm, af, n, orgref, hasComponentId, hasTypeDefId, organizesId), n.getNodeId());
+		delete(n);
+end
+
+
+
+
+
+
+
+
+
+
+rule "Case A.1 rule a: Create asset folder"
+	salience 10
+	agenda-group "general2"
+    when
+        n : DUaNode(typeDef.equals("ISOBUSDeviceType"), dispName : node.getDisplayName())
+        nm : ASNodeManager()
+    then
+        NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+        FolderTypeNode mappedNode = nm.createInstance(FolderTypeNode.class, "Recursive elements", newId);
+        nm.addNodeAndReference(entryNode, mappedNode, Identifiers.Organizes);
+        insert(mappedNode);
+        delete(n);
+end
+
+rule "Case A.1, rule b: with node deletion: Map first device element to asset folder"
+	salience 5
+	agenda-group "general2"
+	when
+		n : DUaNode(typeDef.equals("ISOBUSDeviceElementType"), dispName : node.getDisplayName())
+		af : FolderTypeNode();
+        nm : ASNodeManager()
+        not ruleFired(isFired == "yes")
+	then
+		insert (new ruleFired("yes"));
+		NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+		BaseObjectTypeNode mappedNode = new BaseObjectTypeNode(nm, newId, n.getBrowseName(), n.getDisplayName());
+		nm.addNodeAndReference(af, mappedNode, Identifiers.Organizes);
+		delete (n);
+		delete (af);
+		insert (mappedNode);
+end
+
+rule "Case A.1, rule c: Map rest of the elements recursively as the previous element's child"
+	salience -50
+	agenda-group "general2"
+	when
+		n : DUaNode(typeDef.equals("ISOBUSDeviceElementType"), dispName : node.getDisplayName())
+		no : BaseObjectTypeNode()
+		nm : ASNodeManager()
+		ruleFired(isFired == "yes")
+	then
+		NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+		BaseObjectTypeNode mappedNode = new BaseObjectTypeNode(nm, newId, n.getBrowseName(), n.getDisplayName());
+		nm.addNodeAndReference(no, mappedNode, Identifiers.Organizes);
+		delete (n);
+		delete (no);
+		insert (mappedNode);
+end
+
+
+
+
+rule "Case B.1 rule a: Create asset folder"
+	salience 10
+	agenda-group "general3"
+    when
+        n : DUaNode(typeDef.equals("ISOBUSDeviceType"), dispName : node.getDisplayName())
+        nm : ASNodeManager()
+    then
+        NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+        FolderTypeNode mappedNode = nm.createInstance(FolderTypeNode.class, "Reorganized", newId);
+        nm.addNodeAndReference(entryNode, mappedNode, Identifiers.Organizes);
+        insert(mappedNode);
+        delete(n);
+end
+
+rule "Case B.1 rule b: Map seed drill body and create a new parent for it" //T‰‰ pit‰is ajaa vaa kerran
+	salience 5
+	agenda-group "general3"
+	when
+		n : DUaNode(typeDef.equals("ISOBUSDeviceElementType"), dispName : node.getDisplayName(), node.getDisplayName().getText() == "Seed drill body")
+		af : FolderTypeNode();
+        nm : ASNodeManager()
+	then
+		//New parent node
+		NodeId newIdparent = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+		QualifiedName qn = new QualifiedName("New parent");
+		LocalizedText dn = new LocalizedText("New parent", Locale.ENGLISH);
+		BaseObjectTypeNode parentNode = new BaseObjectTypeNode(nm, newIdparent, qn, dn);
+		nm.addNodeAndReference(af, parentNode, Identifiers.Organizes);
+		
+		//Map seed drill body
+		NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+		BaseObjectTypeNode mappedNode = new BaseObjectTypeNode(nm, newId, n.getBrowseName(), n.getDisplayName());
+		mappedNode.setAttributes(n.getAttributes());
+		nm.addNodeAndReference(parentNode, mappedNode, Identifiers.HasComponent);
+		insert(mappedNode);
+		insert(parentNode);
+		//Delete-calls are unnecessary since we check for displayname, in a more general case they would be required
+end
+
+rule "Case B.1 rule c: Map all functional groups of seed drill body as its siblings"
+	salience 4
+	agenda-group "general3"
+	when
+		n : DUaNode(typeDef.equals("FunctionalGroupType"), dispName : node.getDisplayName())
+		nb : BaseObjectTypeNode(DisplayName.getText() == "Seed drill body");
+		parent : BaseObjectTypeNode(DisplayName.getText() == "New parent");
+        nm : ASNodeManager()
+        compref : UaReference(this.getSourceNode().getDisplayName().getText().equals("Seed drill body")) from n.getReferences(hasComponentId, true)
+	then
+
+		NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+		BaseObjectTypeNode mappedNode = new BaseObjectTypeNode(nm, newId, n.getBrowseName(), n.getDisplayName());
+		mappedNode.setAttributes(n.getAttributes());
+		nm.addNodeAndReference(parent, mappedNode, Identifiers.HasComponent);
+		insert(mappedNode);
+		//Delete-calls are unnecessary since we check for displayname, in a more general case they would be required
+end
+
+rule "Case B.1 rule d: Map all parameters of seed drill body under the new seed drill body node, regardless of functionalgrouptype"
+	salience 3
+	agenda-group "general3"
+	when
+		n : DUaNode()
+		parent : BaseObjectTypeNode(DisplayName.getText() == "Seed drill body");
+		nm : ASNodeManager()
+		orgref : UaReference(this.getSourceNode().getDisplayName().getText().equals("ParameterSet")) from n.getReferences(hasComponentId, true)
+		orgrefparent : UaReference(this.getSourceNode().getDisplayName().getText().equals("Seed drill body")) from orgref.getSourceNode().getReferences(hasComponentId, true)
+	then
+	
+		NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+		IdMap.put(newId, n.getNodeId());
+		UaVariable mappedNode = new CacheVariable(nm, newId, n.getBrowseName(), n.getDisplayName());
+		mappedNode.setAttributes(n.getAttributes()); //FIXME: T‰‰ ei toimi koska t‰‰ ottaa nyt muutki ku variablet eik‰ voi ottaa pelkki‰ variableja ku niill‰ ei oo typedeffi‰
+		nm.addNodeAndReference(parent, mappedNode, Identifiers.Organizes);
+end
+
+
+
+
+
+rule "Your Second Rule"
+    //include attributes such as "salience" here...
+    when
+        //conditions
+    then
+        //actions
+
+end
