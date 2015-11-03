@@ -98,16 +98,6 @@ public class AggregateServerConfigurator {
 		String param = null;
 		
 		switch(input) {
-			case AggregateServer.ADD:
-				System.out.println("Enter node name");
-				param = readConsoleInput();
-				action = AggregateServer.ADD + "|" + param;
-				break;
-			case AggregateServer.DELETE:
-				System.out.println("Enter node name");
-				param = readConsoleInput();
-				action = AggregateServer.DELETE + "|" + param;
-				break;
 			case AggregateServer.DIAG:
 				action = AggregateServer.DIAG;
 				break;

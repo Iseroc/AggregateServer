@@ -1,18 +1,26 @@
-package fi.opc.ua.server;
+package fi.opc.ua.rules;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-
-import org.opcfoundation.ua.builtintypes.NodeId;
 
 public class RuleManager {
 	
+	private List<Rule> rules = new ArrayList<Rule>();
+	
 	public RuleManager() {
 	
+	}
+	
+	public void ReadRuleFile(String filename) {
+		Rule r = new Rule();
+		r.LHS = "";
+		r.RHS = "";
+		r.type = "Deep Copy";
+		rules.add(r);
+	}
+	
+	public List<Rule> GetRules() {
+		return rules;
 	}
 	
 	/*
@@ -20,7 +28,7 @@ public class RuleManager {
 	 * is found, only the correct agenda-group is fired. It is possible to define multiple mappable Ids to the same agenda-
 	 * group in the rulefile as separate lines. The "general" agenda-groups are used to fire certain rules on every server,
 	 * regardless of what namespaceuris the server contains.
-	 */
+	 *
 	public List<MappableType> ReadRuleFile(String filename, String[] uriArray) throws Exception {
 		List<MappableType> resultList = new ArrayList<MappableType>();
 		List<String> nameSpaceUris = Arrays.asList(uriArray);
@@ -66,4 +74,5 @@ public class RuleManager {
 		
 		return resultList;
 	}
+	*/
 }
