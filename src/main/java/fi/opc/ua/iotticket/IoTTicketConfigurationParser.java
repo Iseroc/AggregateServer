@@ -17,8 +17,6 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import org.opcfoundation.ua.core.MonitoringMode;
 
-import fi.opc.ua.iotticket.IoTTicketConfigurationNode.SubscriptionType;
-
 public class IoTTicketConfigurationParser {
 	
 	// constructor

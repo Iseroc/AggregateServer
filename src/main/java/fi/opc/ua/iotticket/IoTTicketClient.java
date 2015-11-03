@@ -55,13 +55,11 @@ import com.prosysopc.ua.client.InvalidServerEndpointException;
 import com.prosysopc.ua.client.MonitoredDataItem;
 import com.prosysopc.ua.client.MonitoredDataItemListener;
 import com.prosysopc.ua.client.MonitoredItem;
-import com.prosysopc.ua.client.ServerConnectionException;
 import com.prosysopc.ua.client.ServerListException;
 import com.prosysopc.ua.client.Subscription;
 import com.prosysopc.ua.client.UaClient;
 import com.prosysopc.ua.nodes.UaInstance;
 import com.prosysopc.ua.nodes.UaNode;
-import com.prosysopc.ua.nodes.UaReferenceType;
 import com.prosysopc.ua.nodes.UaType;
 import com.prosysopc.ua.types.opcua.AnalogItemType;
 
@@ -511,7 +509,7 @@ public class IoTTicketClient {
 			}
 		}
 	}
-	
+	/*
 	private String referenceToString(ReferenceDescription r) throws ServerConnectionException, ServiceException, StatusException {
 		if (r == null)
 			return "";
@@ -553,7 +551,7 @@ public class IoTTicketClient {
 		return String.format("%s%s (ReferenceType=%s, BrowseName=%s%s)", r.getDisplayName().getText(), ": " + typeStr, referenceTypeStr,
 				r.getBrowseName(), r.getIsForward() ? "" : " [Inverse]");
 	}
-	
+	*/
 	private String getRegisteredDevice(String name) {
 		String id = null;
 		

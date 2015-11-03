@@ -168,13 +168,6 @@ public class AggregateServer {
 	private final CertificateValidationListener validationListener = new ASCertificateValidationListener();
 	private final UserValidator userValidator = new ASUserValidator();
 
-	/**
-	 * Number of nodes to create for the Big Node Manager. This can be modified
-	 * from the command line.
-	 */
-	private static int bigAddressSpaceNodes = 1000;
-	private ASBigNodeManager myBigNodeManager;
-
 	protected NodeManagerUaNode complianceNodeManager;
 	protected int complianceNamespaceIndex;
 	private FolderType staticVariableFolder;
@@ -835,10 +828,6 @@ public class AggregateServer {
 		// My HistoryManager
 		myNodeManager.getHistoryManager().setListener(myHistorian);
 
-		// A sample node manager that can handle a big amount of UA nodes
-		// without creating UaNode objects in memory
-		createBigNodeManager();
-
 		// More specific nodes to enable OPC UA compliance testing of more
 		// advanced features
 		createComplianceNodes();
@@ -877,18 +866,6 @@ public class AggregateServer {
 		// } catch (Exception e) {
 		// throw new RuntimeException(e);
 		// }
-	}
-
-	/**
-	 * Create a sample node manager, which does not use UaNode objects. These
-	 * are suitable for managing big address spaces for data that is in practice
-	 * available from another existing subsystem.
-	 */
-	private void createBigNodeManager() {
-		myBigNodeManager = new ASBigNodeManager(
-				uaServer,
-				"http://www.prosysopc.com/OPCUA/SampleBigAddressSpace",
-				bigAddressSpaceNodes);
 	}
 
 	/**
@@ -1448,9 +1425,4 @@ public class AggregateServer {
 		if (e.getCause() != null)
 			System.err.println("Caused by: " + e.getCause());
 	}
-
-	private static void printErr(String e) {
-		System.err.println(e);
-	}
-
 }
