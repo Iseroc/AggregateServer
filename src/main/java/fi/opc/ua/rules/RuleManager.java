@@ -5,18 +5,17 @@ import java.util.List;
 
 public class RuleManager {
 	
-	private List<Rule> rules = new ArrayList<Rule>();
+	private List<RuleSet> rules = new ArrayList<RuleSet>();
 	
 	public RuleManager() {
 	
 	}
 	
 	public void ReadRuleFile(String filename) {
-		Rule r = new Rule();
-		r.LHS = "";
-		r.RHS = "";
-		r.type = "Deep Copy";
-		rules.add(r);
+		RuleSet rs = new RuleSet("URI");
+		Rule r = new Rule("LHS","RHS","Deep copy");
+		rs.AddRule(r);
+		rules.add(rs);
 	}
 	
 	public List<Rule> GetRules() {
