@@ -666,6 +666,10 @@ public class ASNodeManager extends NodeManagerUaNode {
 			println("MyObjects does not contain a component with name " + nodeName);
 	}
 
+	void InsertMappedNode(NodeId targetId, NodeId sourceId) {
+		IdMap.put(targetId, sourceId);
+	}
+	
 	void checkRulesForDevice(AddressSpace AP, NodeId ID, List<UaNode> devChildren, String currentAgenda) throws ServiceException, AddressSpaceException { //NodeId ID argumentti pitäis olla devChildrenin eka
 		//Global reference Ids for KieSession
 		NodeId componentOfId = new NodeId(0,47);

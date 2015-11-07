@@ -3,23 +3,52 @@ package fi.opc.ua.rules;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.opcfoundation.ua.builtintypes.NodeId;
+
+import com.prosysopc.ua.client.AddressSpace;
+
+
 public class RuleManager {
 	
-	private List<RuleSet> rules = new ArrayList<RuleSet>();
+	private List<RuleSet> ruleSets = new ArrayList<RuleSet>();
 	
 	public RuleManager() {
 	
 	}
 	
 	public void ReadRuleFile(String filename) {
-		RuleSet rs = new RuleSet("URI");
-		Rule r = new Rule("LHS","RHS","Deep copy");
+		RuleSet rs = new RuleSet("BoilerServer");
+		Rule r = new Rule("[BoilerType]#1/[ControllerType]","#1/","Deep copy");
+		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[SensorType]#2/DataItem#3","#1/#2","Copy");
+		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[SensorType]#2/DataItem","#1/#3{DisplayName=#2@DisplayName}","Copy");
 		rs.AddRule(r);
-		rules.add(rs);
+		rs.AddRule(r2);
+		rs.AddRule(r3);
+		ruleSets.add(rs);
 	}
 	
-	public List<Rule> GetRules() {
-		return rules;
+	public List<RuleSet> GetRuleSets() {
+		return ruleSets;
+	}
+	
+
+	public List<Rule> MatchRules(NodeId nodeId, AddressSpace as) {
+		//TODO: check if address space matches a rule set 
+		RuleSet matchingSet = ruleSets.get(0);
+		
+		List<Rule> matchingRules = new ArrayList<Rule>();
+		
+		for(Rule r : matchingSet.GetRuleList()) {
+			String[] nodes = r.LHS.split("/");
+			
+			List<RuleNode> ruleNodes = new ArrayList<RuleNode>();
+			for(String s : nodes) {
+				ruleNodes.add(new RuleNode(s));
+			}
+			
+		}
+		
+		return matchingRules;
 	}
 	
 	/*

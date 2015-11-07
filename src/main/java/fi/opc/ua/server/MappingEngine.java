@@ -2,10 +2,14 @@ package fi.opc.ua.server;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Stack;
+import java.util.UUID;
 
 import org.opcfoundation.ua.builtintypes.ExpandedNodeId;
+import org.opcfoundation.ua.builtintypes.LocalizedText;
 import org.opcfoundation.ua.builtintypes.NodeId;
+import org.opcfoundation.ua.builtintypes.QualifiedName;
 import org.opcfoundation.ua.common.ServiceResultException;
 import org.opcfoundation.ua.core.BrowseDirection;
 import org.opcfoundation.ua.core.Identifiers;
@@ -16,9 +20,14 @@ import com.prosysopc.ua.StatusException;
 import com.prosysopc.ua.client.AddressSpace;
 import com.prosysopc.ua.client.AddressSpaceException;
 import com.prosysopc.ua.nodes.UaNode;
+import com.prosysopc.ua.nodes.UaType;
+import com.prosysopc.ua.nodes.UaVariable;
 import com.prosysopc.ua.server.UaServer;
+import com.prosysopc.ua.server.nodes.BaseNode;
+import com.prosysopc.ua.server.nodes.CacheVariable;
 
 import fi.opc.ua.client.AggregateServerConsoleClient;
+import fi.opc.ua.rules.Rule;
 import fi.opc.ua.rules.RuleManager;
 
 public class MappingEngine {
@@ -26,6 +35,10 @@ public class MappingEngine {
 	private static final String RULE_FILE = "/src/main/resources/rules/rulefile.txt";
 	
 	private RuleManager ruleManager;
+
+	private NodeId hasComponentId = new NodeId(0,47);
+	private NodeId OrganizesId = new NodeId(0,35);
+	private NodeId hasTypeDefId = new NodeId(0,40);
 	
 	private List<NodeId> loopedIds = new ArrayList<NodeId>();
 	
@@ -41,22 +54,22 @@ public class MappingEngine {
 		sourceAddressSpace.setReferenceTypeId(Identifiers.HierarchicalReferences);
 		sourceAddressSpace.setBrowseDirection(BrowseDirection.Forward);
 		
-		browseAndMapNode(root, sourceAddressSpace, idList);
+		browseAndMapNode(root, sourceAddressSpace, idList, ts);
 	}
 	
 	//recursively browse and map node and all it's children
-	private void browseAndMapNode(NodeId nodeId, AddressSpace sourceAddressSpace, List<NodeId> idList) {
+	private void browseAndMapNode(NodeId nodeId, AddressSpace sourceAddressSpace, List<NodeId> idList, TargetServer ts) {
 		idList.add(nodeId);
 		
 		try {
-			mapNode(nodeId, sourceAddressSpace);
+			mapNode(nodeId, sourceAddressSpace, ts);
 			
 			List<ReferenceDescription> references = sourceAddressSpace.browse(nodeId);
 			
 			for(ReferenceDescription ref : references) {
 				NodeId currentId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
 
-				browseAndMapNode(currentId, sourceAddressSpace, idList);
+				browseAndMapNode(currentId, sourceAddressSpace, idList, ts);
 			}
 		}
 		catch (Exception e) {
@@ -64,8 +77,58 @@ public class MappingEngine {
 		}
 	}
 	
-	private void mapNode(NodeId nodeId, AddressSpace sourceAddressSpace) {
+	private void mapNode(NodeId nodeId, AddressSpace as, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
+		List<Rule> ruleList = ruleManager.MatchRules(nodeId, as);
 		
+		UaNode sourceNode = as.getNode(nodeId);
+		
+		//get source parent node
+		UaNode sourceParentNode = sourceNode.getReference(hasComponentId, true).getSourceNode();
+		
+		//get or create a target parent node
+		UaNode targetParent = createOrGetObjectNode(sourceParentNode, ts.getNodeManager());
+		
+		
+		UaNode newNode = createVariableNode(sourceNode, targetParent, ts.getNodeManager());
+		
+		ts.getNodeManager().InsertMappedNode(newNode.getNodeId(), nodeId);
+	}
+	
+	private UaNode createOrGetObjectNode(UaNode sourceNode, ASNodeManager nm) {
+		//find this node if it's already created
+		//based on the rule we're in somehow?
+		
+		
+		//else create a new node, and find it's parent node (recurse)
+		NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+		
+		
+		
+		return null;
+	}
+	
+	private UaType createOrGetTypeNode() {
+		return null;
+	}
+	
+	private UaVariable createVariableNode(UaNode sourceNode, UaNode targetParent, ASNodeManager nm) throws StatusException {
+		NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
+		
+		LocalizedText displayName = new LocalizedText((sourceNode.getDisplayName().getText()), Locale.ENGLISH);
+		UaVariable mappedNode = new CacheVariable(nm,
+				newId,
+				new QualifiedName(nm.getNamespaceIndex(), sourceNode.getBrowseName().getName()),
+				displayName);
+		mappedNode.setAttributes(sourceNode.getAttributes());
+		
+		//TODO: set properties
+		
+		((BaseNode) mappedNode).initNodeVersion();
+		
+		//add a references from the target parent node to the new target variable node
+		nm.addNodeAndReference(targetParent, mappedNode, Identifiers.Organizes);
+		
+		return mappedNode;
 	}
 	
 	//*** OLD ***
