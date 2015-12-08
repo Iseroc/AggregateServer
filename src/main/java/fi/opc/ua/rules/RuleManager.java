@@ -7,7 +7,6 @@ import org.opcfoundation.ua.builtintypes.NodeId;
 
 import com.prosysopc.ua.client.AddressSpace;
 
-
 public class RuleManager {
 	
 	private List<RuleSet> ruleSets = new ArrayList<RuleSet>();
@@ -31,12 +30,11 @@ public class RuleManager {
 		return ruleSets;
 	}
 	
-
-	public List<Rule> MatchRules(NodeId nodeId, AddressSpace as) {
+	public List<MatchingRule> MatchRules(NodeId nodeId, AddressSpace as) {
 		//TODO: check if address space matches a rule set 
 		RuleSet matchingSet = ruleSets.get(0);
 		
-		List<Rule> matchingRules = new ArrayList<Rule>();
+		List<MatchingRule> matchingRules = new ArrayList<MatchingRule>();
 		
 		for(Rule r : matchingSet.GetRuleList()) {
 			String[] nodes = r.LHS.split("/");

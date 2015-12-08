@@ -1,67 +1,43 @@
 package fi.opc.ua.rules;
 
-import com.prosysopc.ua.nodes.UaNode;
-import com.prosysopc.ua.nodes.UaType;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.opcfoundation.ua.builtintypes.NodeId;
 
 public class RuleNode {
-	
-	public RuleNode(String ruleString) {
-		/*
-		 * Example ruleString
-		 *
-		 * [NodeType]NodeName#1
-		 * TYPE       between []
-		 * NAME:      after the type ] or if no type, the beginning
-		 * REFERENCE: #1 makes this the reference with name 1
-		 * 
-		 * Reference is not required. Either type or name is required for the rule to work
-		 */
+	public RuleNode(String rule, boolean parse) {
+		this.raw = rule;
 		
-		if(ruleString.indexOf("[") == 0) {
-			int endIndex = ruleString.indexOf("]");
-			this.Type = ruleString.substring(1, endIndex - 1);
-		}
-		
-		int nameStartIndex = 0;
-		if(ruleString.indexOf("]") > 0) {
-			nameStartIndex = ruleString.indexOf("]") + 1;
-		}
-		
-		int referenceIndex = ruleString.indexOf("#");
-		
-		if(nameStartIndex < ruleString.length()) {
-			if(referenceIndex != -1)
-				this.Name = ruleString.substring(nameStartIndex, referenceIndex - 1);
-			else
-				this.Name = ruleString.substring(nameStartIndex, ruleString.length() - 1);
-		}
-		
-		if(referenceIndex != 1) {
-			this.Reference = ruleString.substring(referenceIndex + 1, ruleString.length() - 1);
-		}
+		if(parse)
+			parseRAW();
 	}
 	
-	public String RuleSide = "LHS";
-	public String Type = null;
-	public String Name = null;
-	public String Reference = null;
+	private String raw = null;
+	private String Name = null;
+	private String Type = null;
+	private Map<String, Object> Attributes = new HashMap<String, Object>();
+	private NodeId matchingNodeId;
 	
-	public boolean MatchesUaNode(UaNode node, UaType type) throws Exception {
-		if(RuleSide == "RHS")
-			throw new Exception("Invalid rule side matching.");
-		if(node == null)
-			throw new IllegalArgumentException("Argument node is null");
-		
-		if(Type != null) {
-			if(!type.getDisplayName().equals(Type))
-				return false;
+	private void parseRAW(){
+		//parse type [Type]
+		if(raw.contains("[") && raw.contains("]")) {
+			Type = raw.substring(raw.indexOf("[") + 1, raw.indexOf("]"));
 		}
 		
-		if(Name != null) {
-			if(!node.getDisplayName().equals(Name))
-				return false;
-		}
+		//parse name
+		int nameStartIndex = raw.indexOf("]") + 1;
+		int nameEndIndex = raw.indexOf("(");
+		if(nameEndIndex == -1)
+			nameEndIndex = raw.length();
 		
-		return true;
+		Name = raw.substring(nameStartIndex, nameEndIndex);
+		
+		String attrString = "";
+		if(raw.contains("(") && raw.contains(")"))
+			attrString = raw.substring(raw.indexOf("(") + 1, raw.indexOf(")"));
+		
+		//parse attributes (@Attribute = value, @Attribute2 = value2)
+		//TODO: parse attributes
 	}
 }

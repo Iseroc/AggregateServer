@@ -62,10 +62,12 @@ public class MappingEngine {
 		idList.add(nodeId);
 		
 		try {
+			//map current node
 			mapNode(nodeId, sourceAddressSpace, ts);
 			
 			List<ReferenceDescription> references = sourceAddressSpace.browse(nodeId);
 			
+			//recur browse-and-map method for each children
 			for(ReferenceDescription ref : references) {
 				NodeId currentId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
 
@@ -78,8 +80,14 @@ public class MappingEngine {
 	}
 	
 	private void mapNode(NodeId nodeId, AddressSpace as, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
-		List<Rule> ruleList = ruleManager.MatchRules(nodeId, as);
+		List<Rule> matchingRules = ruleManager.MatchRules(nodeId, as);
 		
+		//perform an operation that matches the rule type
+		//TODO: different types of rule operations
+		mapVariableNode(nodeId, as, ts);
+	}
+	
+	private void mapVariableNode(NodeId nodeId, AddressSpace as, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
 		UaNode sourceNode = as.getNode(nodeId);
 		
 		//get source parent node
@@ -87,7 +95,6 @@ public class MappingEngine {
 		
 		//get or create a target parent node
 		UaNode targetParent = createOrGetObjectNode(sourceParentNode, ts.getNodeManager());
-		
 		
 		UaNode newNode = createVariableNode(sourceNode, targetParent, ts.getNodeManager());
 		
@@ -98,6 +105,12 @@ public class MappingEngine {
 		//find this node if it's already created
 		//based on the rule we're in somehow?
 		
+		UaNode sourceParentNode = sourceNode.getReference(hasComponentId, true).getSourceNode();
+		if(sourceParentNode == null)
+		{
+			
+			
+		}
 		
 		//else create a new node, and find it's parent node (recurse)
 		NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
