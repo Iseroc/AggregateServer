@@ -27,8 +27,10 @@ import com.prosysopc.ua.server.nodes.BaseNode;
 import com.prosysopc.ua.server.nodes.CacheVariable;
 
 import fi.opc.ua.client.AggregateServerConsoleClient;
+import fi.opc.ua.rules.MatchingRule;
 import fi.opc.ua.rules.Rule;
 import fi.opc.ua.rules.RuleManager;
+import fi.opc.ua.rules.RuleNode;
 
 public class MappingEngine {
 
@@ -80,11 +82,18 @@ public class MappingEngine {
 	}
 	
 	private void mapNode(NodeId nodeId, AddressSpace as, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
-		List<Rule> matchingRules = ruleManager.MatchRules(nodeId, as);
+		List<MatchingRule> matchingRules = ruleManager.MatchRules(nodeId, as);
 		
-		//perform an operation that matches the rule type
-		//TODO: different types of rule operations
-		mapVariableNode(nodeId, as, ts);
+		for(MatchingRule mRule : matchingRules) {
+			mapVariableNode(mRule);
+		}
+		
+	}
+	
+	private void mapVariableNode(MatchingRule mRule) {
+		for(RuleNode rNode : mRule.RHSNodes) {
+			
+		}
 	}
 	
 	private void mapVariableNode(NodeId nodeId, AddressSpace as, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {

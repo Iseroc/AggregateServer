@@ -5,7 +5,9 @@ import java.util.List;
 
 import org.opcfoundation.ua.builtintypes.NodeId;
 
+import com.prosysopc.ua.ServiceException;
 import com.prosysopc.ua.client.AddressSpace;
+import com.prosysopc.ua.client.AddressSpaceException;
 
 public class RuleManager {
 	
@@ -30,20 +32,17 @@ public class RuleManager {
 		return ruleSets;
 	}
 	
-	public List<MatchingRule> MatchRules(NodeId nodeId, AddressSpace as) {
+	public List<MatchingRule> MatchRules(NodeId nodeId, AddressSpace as) throws ServiceException, AddressSpaceException {
 		//TODO: check if address space matches a rule set 
 		RuleSet matchingSet = ruleSets.get(0);
 		
 		List<MatchingRule> matchingRules = new ArrayList<MatchingRule>();
+		MatchingRule mRule = null;
 		
-		for(Rule r : matchingSet.GetRuleList()) {
-			String[] nodes = r.LHS.split("/");
-			
-			List<RuleNode> ruleNodes = new ArrayList<RuleNode>();
-			for(String s : nodes) {
-				ruleNodes.add(new RuleNode(s));
-			}
-			
+		for(Rule rule : matchingSet.GetRuleList()) {
+			mRule = MatchingRule.MatchRule(rule, nodeId, as);
+			if(mRule != null)
+				matchingRules.add(mRule);
 		}
 		
 		return matchingRules;
