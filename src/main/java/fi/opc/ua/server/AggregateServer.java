@@ -443,8 +443,14 @@ public class AggregateServer {
 		if(status != ERROR)
 		{
 			writeToOutputStream("Mapping server address space...");
-			mappingEngine.MapAddressSpace(Identifiers.RootFolder, clientList.get(clientList.size()-1));
-			writeToOutputStream("Server address space mapped");
+			try{
+				mappingEngine.MapAddressSpace(clientList.get(clientList.size()-1));
+				writeToOutputStream("Server address space mapped");
+			}
+			catch(Exception e) {
+				status = ERROR;
+				writeToOutputStream("Failed to map server");
+			}
 		}
 		
 		return status;

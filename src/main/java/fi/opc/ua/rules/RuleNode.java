@@ -4,8 +4,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.opcfoundation.ua.builtintypes.NodeId;
+import org.opcfoundation.ua.core.Identifiers;
 
 import com.prosysopc.ua.nodes.UaNode;
+import com.prosysopc.ua.nodes.UaReference;
 
 public class RuleNode {
 	private String raw = null;
@@ -16,11 +18,10 @@ public class RuleNode {
 	public NodeId matchingNodeId;
 	
 	//**Ctor**
-	public RuleNode(String rule, boolean parse) {
+	public RuleNode(String rule) {
 		this.raw = rule;
 		
-		if(parse)
-			parseRAW();
+		parseRAW();
 	}
 	
 	public RuleNode(String name, String type, Map<String,Object> attributes, NodeId matchingNodeId) {
@@ -35,15 +36,30 @@ public class RuleNode {
 		boolean matches = true;
 		
 		//match name
-		//TODO: displayname? browsename?
-		if(!node.getBrowseName().equals(Name))
+		if(Name != null && Name != "" && !node.getBrowseName().getName().equals(Name))
 			matches = false;
 		
 		//match type
+		UaReference typeRef = node.getReference(Identifiers.HasTypeDefinition, true);
+		if(Type != null && Type != "" && typeRef != null && !typeRef.getTargetNode().getBrowseName().getName().equals(Type))
+			matches = false;
 		
 		//match attributes
+		String compType = null;
+		if(typeRef != null){
+			compType = typeRef.getTargetNode().getBrowseName().getName();
+		}
+		
+		System.out.println("Comparing RuleNode: [" + Type + "]" + Name);
+		System.out.println("Comparing to Node:  [" + compType + "]" + node.getBrowseName().getName());
+		
+		this.matchingNodeId = node.getNodeId();
 		
 		return matches;
+	}
+	
+	public void ClearMatchingNodeId() {
+		this.matchingNodeId = null;
 	}
 	
 	//**Private methods**
@@ -57,9 +73,12 @@ public class RuleNode {
 		int nameStartIndex = raw.indexOf("]") + 1;
 		int nameEndIndex = raw.indexOf("(");
 		if(nameEndIndex == -1)
+			nameEndIndex = raw.indexOf("#");
+		if(nameEndIndex == -1)
 			nameEndIndex = raw.length();
 		
-		this.Name = raw.substring(nameStartIndex, nameEndIndex);
+		if(nameStartIndex != nameEndIndex)
+			this.Name = raw.substring(nameStartIndex, nameEndIndex);
 
 		//parse attributes (@Attribute = value, @Attribute2 = value2)
 		String attrString = "";
