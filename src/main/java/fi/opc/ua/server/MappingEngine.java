@@ -20,15 +20,17 @@ import com.prosysopc.ua.StatusException;
 import com.prosysopc.ua.client.AddressSpace;
 import com.prosysopc.ua.client.AddressSpaceException;
 import com.prosysopc.ua.nodes.UaNode;
+import com.prosysopc.ua.nodes.UaReference;
 import com.prosysopc.ua.nodes.UaType;
 import com.prosysopc.ua.nodes.UaVariable;
 import com.prosysopc.ua.server.UaServer;
 import com.prosysopc.ua.server.nodes.BaseNode;
 import com.prosysopc.ua.server.nodes.CacheVariable;
+import com.prosysopc.ua.types.opcua.FolderType;
+import com.prosysopc.ua.types.opcua.server.FolderTypeNode;
 
 import fi.opc.ua.client.AggregateServerConsoleClient;
 import fi.opc.ua.rules.MatchingRule;
-import fi.opc.ua.rules.Rule;
 import fi.opc.ua.rules.RuleManager;
 import fi.opc.ua.rules.RuleNode;
 
@@ -49,20 +51,32 @@ public class MappingEngine {
 		ruleManager.ReadRuleFile(RULE_FILE);
 	}
 	
-	public void MapAddressSpace(NodeId root, TargetServer ts) {
+	public void MapAddressSpace(TargetServer ts) throws ServiceException, StatusException, ServiceResultException {
+		NodeId root = Identifiers.ObjectsFolder;
+		
 		List<NodeId> idList = new ArrayList<NodeId>();
 		
 		AddressSpace sourceAddressSpace = ts.getTargetServerAddressSpace();
 		sourceAddressSpace.setReferenceTypeId(Identifiers.HierarchicalReferences);
 		sourceAddressSpace.setBrowseDirection(BrowseDirection.Forward);
 		
-		browseAndMapNode(root, sourceAddressSpace, idList, ts);
+		NodeId myObjectsNodeId = null;
+		List<ReferenceDescription> refs = sourceAddressSpace.browse(root);
+		for(ReferenceDescription ref : refs) {
+			if(ref.getBrowseName().getName().equals("MyObjects"))
+				myObjectsNodeId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
+		}
+		
+		System.out.println("Found MyObjects folder to map");
+		
+		if(myObjectsNodeId != null)
+			browseAndMapNode(myObjectsNodeId, sourceAddressSpace, idList, ts);
 	}
 	
 	//recursively browse and map node and all it's children
 	private void browseAndMapNode(NodeId nodeId, AddressSpace sourceAddressSpace, List<NodeId> idList, TargetServer ts) {
 		idList.add(nodeId);
-		
+		System.out.println("Browsing node " + nodeId.toString());
 		try {
 			//map current node
 			mapNode(nodeId, sourceAddressSpace, ts);
@@ -81,17 +95,55 @@ public class MappingEngine {
 		}
 	}
 	
-	private void mapNode(NodeId nodeId, AddressSpace as, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
-		List<MatchingRule> matchingRules = ruleManager.MatchRules(nodeId, as);
-		
+	private void mapNode(NodeId nodeId, AddressSpace sourceAddressSpace, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
+		List<MatchingRule> matchingRules = ruleManager.MatchRules(nodeId, sourceAddressSpace);
+		System.out.println("Number of matching rules: " + matchingRules.size());
 		for(MatchingRule mRule : matchingRules) {
-			mapVariableNode(mRule);
+			findOrCreateNode(mRule, ts);
 		}
 		
 	}
 	
-	private void mapVariableNode(MatchingRule mRule) {
+	private void findOrCreateNode(MatchingRule mRule, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
+		FolderType entryNode = ts.getNodeManager().getServer().getNodeManagerRoot().getObjectsFolder();
+		
+		UaNode currentNode = entryNode;
+		
+		//find or build the tree of nodes from RHSNodes
 		for(RuleNode rNode : mRule.RHSNodes) {
+			System.out.println("Mapping RHSNode [" + rNode.Type + "]" + rNode.Name);
+			
+			//get all component children of current node, check if any one of them matches the rNode
+			UaNode refNode, matchingNode = null;
+			UaReference[] references = currentNode.getReferences();
+			for(UaReference ref : references) {
+				refNode = ref.getOppositeNode(currentNode);
+				if(rNode.MatchesWithUaNode(refNode)) {
+					System.out.println("Found matching node: " + refNode.getBrowseName().getName());
+					matchingNode = refNode;
+					break;
+				}
+			}
+			
+			if(matchingNode != null) {
+				currentNode = matchingNode;
+			}
+			else {
+				System.out.println("Creating a new folder node with a reference: " + rNode.matchingNodeId);
+				//create a node to match rNode
+				ASNodeManager nm = ts.getNodeManager();
+				
+				UaNode sourceNode = ts.getTargetServerAddressSpace().getNode(rNode.matchingNodeId);
+				
+				String name = rNode.Name != null ? rNode.Name : sourceNode.getBrowseName().getName();
+				
+				NodeId newId = new NodeId(nm.getNamespaceIndex(), name + UUID.randomUUID());
+				//TODO: get ObjectTypeNode from rNode instead of using FolderTypeNode!!
+				//TODO: add attributes and other additional values from rNode
+		        FolderTypeNode mappedNode = nm.createInstance(FolderTypeNode.class, name, newId);
+		        nm.addNodeAndReference(currentNode, mappedNode, Identifiers.Organizes);
+		        currentNode = mappedNode;
+			}
 			
 		}
 	}

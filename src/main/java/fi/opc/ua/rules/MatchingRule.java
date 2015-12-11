@@ -33,6 +33,12 @@ public class MatchingRule {
 			mRule.parseRuleRHS();
 			return mRule;
 		}
+		else {
+			//Did not match, clearing matchingNodeIds
+			for(RuleNode rNode : mRule.LHSNodes) {
+				rNode.ClearMatchingNodeId();
+			}
+		}
 		
 		return null;
 	}
@@ -43,24 +49,42 @@ public class MatchingRule {
 		
 		LHSNodes = new ArrayList<RuleNode>();
 		for(String s : nodes) {
-			LHSNodes.add(new RuleNode(s, true));
+			LHSNodes.add(new RuleNode(s));
 		}
 	}
 	
 	private void parseRuleRHS(){
+		String[] nodes = rule.RHS.split("/");
 		
+		RHSNodes = new ArrayList<RuleNode>();
+		for(String s : nodes) {
+			RHSNodes.add(new RuleNode(s));
+			System.out.println("Create RHS from " + s + " to have ref " + RHSNodes.get(RHSNodes.size()-1).Reference);
+		}
+		
+		//connect references from LHS to RHS if they exist
+		for(RuleNode rhsNode : RHSNodes) {
+			for(RuleNode lhsNode : LHSNodes) {
+				if(rhsNode.Reference.equals(lhsNode.Reference)) {
+					rhsNode.matchingNodeId = lhsNode.matchingNodeId;
+					break;
+				}
+			}
+		}
 	}
 	
-	private boolean matchWithNode(UaNode nodeId, int index) throws ServiceException, AddressSpaceException {
+	private boolean matchWithNode(UaNode node, int index) throws ServiceException, AddressSpaceException {
+		//reached the end of LHSNodes rule list
+		if(index >= LHSNodes.size())
+			return true;
 		
-		
-		if(this.LHSNodes.get(LHSNodes.size() - index - 1).MatchesWithUaNode(sourceNode)) {
+		if(this.LHSNodes.get(LHSNodes.size() - index - 1).MatchesWithUaNode(node)) {
 			//this node matches the node at LHSNodes size-index
 			
 			//get source parent node
-			UaNode sourceParentNode = sourceNode.getReference(hasComponentId, true).getSourceNode();
+			UaNode sourceParentNode = node.getReference(hasComponentId, true).getSourceNode();
 			
-			return matchWithNode()
+			return matchWithNode(sourceParentNode, index+1);
 		}
 		
 		//this node does not match rule
