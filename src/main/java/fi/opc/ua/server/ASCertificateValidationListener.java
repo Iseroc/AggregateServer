@@ -28,7 +28,7 @@ CertificateValidationListener {
 			ApplicationDescription applicationDescription,
 			EnumSet<CertificateCheck> passedChecks) {
 		try {
-			AggregateServerConsoleServer.println(applicationDescription
+			System.out.println(applicationDescription
 					+ ", "
 					+ CertificateUtils
 					.getApplicationUriOfCertificate(certificate));
@@ -41,8 +41,7 @@ CertificateValidationListener {
 				CertificateCheck.Validity, CertificateCheck.Signature))) {
 			if (!passedChecks.contains(CertificateCheck.Uri))
 				try {
-					AggregateServerConsoleServer
-					.println("Client's ApplicationURI ("
+					System.out.println("Client's ApplicationURI ("
 							+ applicationDescription
 							.getApplicationUri()
 							+ ") does not match the one in certificate: "

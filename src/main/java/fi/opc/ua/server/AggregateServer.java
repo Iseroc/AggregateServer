@@ -13,11 +13,7 @@ import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Locale;
-import java.util.Stack;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -39,11 +35,9 @@ import org.opcfoundation.ua.builtintypes.XmlElement;
 import org.opcfoundation.ua.common.NamespaceTable;
 import org.opcfoundation.ua.common.ServiceResultException;
 import org.opcfoundation.ua.core.ApplicationDescription;
-import org.opcfoundation.ua.core.BrowseDirection;
 import org.opcfoundation.ua.core.EUInformation;
 import org.opcfoundation.ua.core.Identifiers;
 import org.opcfoundation.ua.core.Range;
-import org.opcfoundation.ua.core.ReferenceDescription;
 import org.opcfoundation.ua.core.UserTokenPolicy;
 import org.opcfoundation.ua.transport.security.HttpsSecurityPolicy;
 import org.opcfoundation.ua.transport.security.KeyPair;
@@ -63,7 +57,6 @@ import com.prosysopc.ua.StatusException;
 import com.prosysopc.ua.UaAddress;
 import com.prosysopc.ua.ValueRanks;
 import com.prosysopc.ua.UaApplication.Protocol;
-import com.prosysopc.ua.client.AddressSpace;
 import com.prosysopc.ua.client.AddressSpaceException;
 import com.prosysopc.ua.client.ServerListException;
 import com.prosysopc.ua.nodes.UaNode;
@@ -101,7 +94,6 @@ import fi.opc.ua.iotticket.IoTTicketClient;
 public class AggregateServer {
 	
 	// main
-	
 	public static void main(String[] args) {
 		AggregateServer server = new AggregateServer();
 		
@@ -115,7 +107,6 @@ public class AggregateServer {
 	
 	
 	// constructor
-	
 	public AggregateServer() {
 		
 	}
@@ -127,522 +118,17 @@ public class AggregateServer {
 		// Initialize the server
 		try {
 			this.initInternal(52520, 52443, APP_NAME);
+			this.initMappingEngine();
 			this.createAddressSpace();
 		} catch (Exception e) {
 			System.out.println("Initialize failed!");
 			printErr(e);
 		}
 	}
-	
-	
-	
-	// variables
-	
-	protected static final String DONE = "done";
-	protected static final String ERROR = "error";
-	
-	protected static final String ADD = "add";
-	protected static final String DELETE = "delete";
-	protected static final String EVENT = "event";
-	protected static final String DIAG = "diag";
-	protected static final String LIST = "list";
-	protected static final String INSERT = "insert";
-	protected static final String INSERTANDMAP = "insert_map";
-	protected static final String SHUTDOWN = "shutdown";
-	protected static final String DISCONNECT = "disconnect";
-	protected static final String IOTCLIENT = "iot";
-	
-	private static String RULE_FILE = "/src/main/resources/rules/testirule.drl";
-	private static String APP_NAME = "AggregateServer";
-	private static String discoveryServerUrl = "opc.tcp://localhost:4840";
-	
-	private DataInputStream is;
-	private PrintStream os;
 
-	private static Logger logger = Logger.getLogger(AggregateServer.class);
-	
-	private static AggregateServerConsoleClient internalClient = new AggregateServerConsoleClient();
-	private static NodeManagerListener myNodeManagerListener = new ASNodeManagerListener();
-	private static ASIoManagerListener MyIOListener = new ASIoManagerListener();
-	private static ASHistorian myHistorian = new ASHistorian();
-	private final CertificateValidationListener validationListener = new ASCertificateValidationListener();
-	private final UserValidator userValidator = new ASUserValidator();
-
-	/**
-	 * Number of nodes to create for the Big Node Manager. This can be modified
-	 * from the command line.
-	 */
-	private static int bigAddressSpaceNodes = 1000;
-	private ASBigNodeManager myBigNodeManager;
-
-	protected NodeManagerUaNode complianceNodeManager;
-	protected int complianceNamespaceIndex;
-	private FolderType staticVariableFolder;
-	private FolderType staticArrayVariableFolder;
-	private FolderType dataItemFolder;
-	private FolderType analogItemFolder;
-	private FolderType analogItemArrayFolder;
-	private FolderType deepFolder;
-	private FileNodeManager fileNodeManager;
-	
-	private static ASNodeManager myNodeManager;
-	private static UaServer uaServer;
-	
-	private static List<TargetServer> clientList = new ArrayList<TargetServer>();
-	private List<NodeId> loopedIds = new ArrayList<NodeId>();
-	
-	private IoTTicketClient iotClient;
-	
-	
-	
-    // Actions
-    
-	//TODO: untested
-	private String addNode(String name) {
-		myNodeManager.createSampleAssetNode(name);
-		return DONE;
-	}
-
-	//TODO: untested
-	private String deleteNode(String name) {
-		try {
-			QualifiedName nodeName = new QualifiedName(myNodeManager.getNamespaceIndex(), name);
-			AggregateServerConsoleServer.myNodeManager.deleteNode(nodeName);
-			return DONE;
-		} catch (StatusException e) {
-			printErr(e);
-		}
-		return ERROR;
-	}
-
-	//TODO: untested
-	private String enableDiagnostics() {
-		try {
-			final UaProperty enabledFlag = uaServer.getNodeManagerRoot().getServerData().getServerDiagnosticsNode().getEnabledFlagNode();
-			boolean newValue = !((Boolean) enabledFlag.getValue().getValue().getValue());
-			enabledFlag.setValue(Boolean.valueOf(newValue));
-			System.out.println("Server Diagnostics " + (newValue ? "Enabled" : "Disabled"));
-			return DONE;
-		} catch (StatusException e) {
-			printErr(e);
-		}
-		return ERROR;
-	}
-
-	//TODO: untested
-	private String sendEvent() {
-		myNodeManager.sendEvent();
-		return DONE;
-	}
-	
-	private String listServers() {
-		System.out.println("Sending server list to client");
-		System.out.println("    -Server list size: " + clientList.size());
-		
-		if(clientList.size() == 0) {
-			writeToOutputStream("Server list empty");
-			return ERROR;
-		}
-		
-		int i = 1;
-		for (TargetServer server : clientList) {
-			try {
-				writeToOutputStream(i + ": " + ((UaProperty)server.getClient().client.getAddressSpace().getNode(new NodeId(0,2254))).getValue().getValue().toString() + "(Namespaceindex " + server.getNodeManager().getNamespaceIndex() + ")");
-			} catch (ServiceException | AddressSpaceException e) {
-				printErr(e);
-				writeToOutputStream("Error printing server list");
-				return ERROR;
-			}
-			i += 1;
-		}
-
-		try{
-			writeToOutputStream(DONE);
-	
-			System.out.println("Waiting client input");
-			
-			String input = readFromInputStream();
-			
-			System.out.println("Client: " + input);
-			
-			int ind = Integer.parseInt(input) - 1;
-			List<MappableType> ruleFileResults = readRuleFile(clientList.get(ind).getClient());
-			
-			loopedIds.clear();
-			deleteNodesByNameSpaceIndex(clientList.get(ind).getNodeManager(), internalClient, Identifiers.RootFolder);
-	
-			loopedIds.clear();
-			copyAddressSpace(Identifiers.RootFolder, ruleFileResults, clientList.get(ind));
-			
-			System.out.println("Sending server list to client done");
-			
-			return DONE;
-		} catch (Exception e) {
-			printErr(e);
-		}
-			
-		return ERROR;
-	}
-
-	private String insertServer(String address) {
-		AggregateServerConsoleClient newClient = new AggregateServerConsoleClient();
-		
-		String[] clientargs = address.split(" ");
-		for (TargetServer ts : clientList) {
-			if (clientargs[clientargs.length-1].equals(ts.getNodeManager().getNamespaceUri())) {
-				writeToOutputStream("Server already added, remap from server list if necessary");
-				return DONE;
-			}
-		}
-
-		newClient.parseCmdLineArgs(clientargs);
-		try {
-			newClient.initialize(clientargs);
-			newClient.storeInternalClient(internalClient);
-			newClient.connect();
-			if (newClient.client.isConnected()) {
-				UaProperty serverArray = newClient.client.getAddressSpace().getNode(new NodeId(0,2253)).getProperty(new QualifiedName(0,"ServerArray"));
-				uaServer.addToServerArray(serverArray.getValue().getValue().toString());
-				ASNodeManager newNodeManager = createNodeManager(serverArray.getValue().getValue().toString());
-				TargetServer newServer = new TargetServer(newClient, newNodeManager);
-				clientList.add(newServer);
-				writeToOutputStream("Server added successfully");
-				return DONE;
-			} else {
-				newClient = null;
-				writeToOutputStream("Could not connect to server");
-				return ERROR;
-			}
-		} catch (URISyntaxException | SecureIdentityException | IOException
-				| ServerListException | StatusException | AddressSpaceException | ServiceException e) {
-			printErr(e);
-		}
-
-		writeToOutputStream("Adding the server failed");
-		return ERROR;
-	}
-	
-	private String insertAndMapServer(String address) {
-		String status = insertServer(address);
-		
-		if(status != ERROR)
-		{
-			writeToOutputStream("Mapping server address space...");
-			List<MappableType> ruleFileResults = readRuleFile(clientList.get(clientList.size()-1).getClient());
-			loopedIds.clear();
-			copyAddressSpace(Identifiers.RootFolder, ruleFileResults, clientList.get(clientList.size()-1));
-			writeToOutputStream("Server address space mapped");
-		}
-		
-		return status;
-	}
-
-	private String toggleIoTClient() {
-		String status = DONE;
-		
-		if(iotClient == null) {
-			writeToOutputStream("Starting IoT client...");
-			
-			if(iotClient == null)
-				iotClient = new IoTTicketClient();
-			
-			try {
-				iotClient.automaticInitializeAndStart("opc.tcp://localhost:52520/OPCUA/AggregateServer");
-				writeToOutputStream("IoT client started");
-			} catch (ValidAPIParamException | URISyntaxException
-					| ParserConfigurationException | SAXException | IOException
-					| ServiceException | StatusException | ServiceResultException
-					| AddressSpaceException e) {
-				System.out.println("Starting IoT client failed");
-				writeToOutputStream("Starting IoT client failed");
-				printErr(e);
-				status = ERROR;
-			}
-		} else {
-			writeToOutputStream("Closing IoT client...");
-			
-			try {
-				iotClient.shutdown();
-				iotClient = null;
-			} catch (ServiceException e) {
-				System.out.println("Closing IoT client failed");
-				writeToOutputStream("Closing IoT client failed");
-				printErr(e);
-				status = ERROR;
-			}
-		}
-
-		return status;
-	}
-	
-
-    
-	// public methods
-	
-	/**
-	 * Run the server with java sockets open for communication
-	 * @param socket
-	 * @throws UaServerException 
-	 */
-	public void runSocketServer(int socket, boolean enableSessionDiagnostics) {
-		try {
-			uaServer.start();
-		} catch (UaServerException e) {
-			printErr(e);
-			System.out.println("Unable to start UA server. Halting startup process.");
-			return;
-		}
-		
-		initHistory();
-		if (enableSessionDiagnostics)
-			uaServer.getNodeManagerRoot().getServerData().getServerDiagnosticsNode().setEnabled(true);
-		
-		// start simulation process
-		startSimulation();
-
-		// initialize the internal client which is used to browse the address space of the aggregating server, as well as to delete and write to nodes
-		String[] internalargs = new String[1];
-		
-		
-		internalargs[0] = "opc.tcp://localhost:52520/OPCUA/AggregateServer";
-		internalClient.parseCmdLineArgs(internalargs);
-		try {
-			internalClient.initialize(internalargs);
-		} catch (SessionActivationException e) {
-			e.printStackTrace();
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
-		} catch (SecureIdentityException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (ServerListException e) {
-			e.printStackTrace();
-		}
-		internalClient.connect();
-	
-		// initialize socket communications
-		ServerSocket serverSocket = null;
-        String input;
-        String output;
-        Socket clientSocket = null;
-        
-        System.out.println("Server: AggregateServer started");
-
-        try {
-        	serverSocket = new ServerSocket(socket);
-        }
-        catch (IOException e) {
-        	System.out.println(e);
-        }
-        
-        while(true) {
-	        try {
-		        clientSocket = serverSocket.accept();
-	            System.out.println("Server: client connected");
-	            
-		        is = new DataInputStream(clientSocket.getInputStream());
-		        os = new PrintStream(clientSocket.getOutputStream());
-		        
-		        writeToOutputStream(iotClient != null ? "connected" : "disconnected");
-		        
-		        while (true) {
-		            System.out.println("Server: waiting for client input");
-					input = readFromInputStream();
-	
-					System.out.println("Client: " + input);
-					
-					// process client input
-					output = parseClientInput(input);
-	
-					if(output != null)
-						writeToOutputStream(output);
-					
-					if(output != null && output.equals(DISCONNECT)) {
-						// current client disconnected
-						System.out.println("Server: Current client disconnected");
-						closeConnectionToClient(clientSocket);
-						break;
-					}
-					
-					// shutdown command
-					if(output != null && output.equals(SHUTDOWN)) {
-						shutdown(serverSocket, clientSocket);
-						return;
-					}
-	            }
-		    }   
-	        catch (IOException | ServiceException e) {
-	            printErr(e);
-	            System.out.println("Server: Lost connection to client");
-	            if(clientSocket != null && !clientSocket.isClosed()) {
-	            	try {
-	            		System.out.println("DEBUG: Lost connection force disconnect");
-						closeConnectionToClient(clientSocket);
-	            	} catch(Exception e2) {
-	            		printErr(e2);
-	            	}
-	            }
-	        }
-        }
-	}
-
-	private String parseClientInput(String message) {
-		String ret = null;
-
-		if(message != null)
-		{
-			String[] params = message.split("\\|");
-			
-			switch(params[0]) {
-				case ADD:
-					ret = addNode(params[1]);
-					break;
-				case DELETE:
-					ret = deleteNode(params[1]);
-					break;
-				case DIAG:
-					ret = enableDiagnostics();
-					break;
-				case EVENT:
-					ret = sendEvent();
-					break;
-				case LIST: // list servers to the client, and map the selected server
-					ret = listServers();
-					break;
-				case INSERT: // insert the given server to the server list
-					if(params.length>1)
-						ret = insertServer(params[1]);
-					else
-						ret = ERROR;
-					break;
-				case INSERTANDMAP: // insert the server to the server list and map instantly
-					if(params.length>1)
-						ret = insertAndMapServer(params[1]);
-					else
-						ret = ERROR;
-					break;
-				case IOTCLIENT:
-					ret = toggleIoTClient();
-					break;
-				case SHUTDOWN:
-					ret = SHUTDOWN;
-					break;
-				case DISCONNECT:
-					ret = DISCONNECT;
-					break;
-				default:
-					writeToOutputStream("Invalid server command!");
-					ret = ERROR;
-					break;
-			}
-		}
-		
-		return ret;
-	}
-	
-	private void shutdown(ServerSocket serverSocket, Socket clientSocket) throws IOException, ServiceException {
-		System.out.println("Server: shutdown initiated from client side");
-        
-        serverSocket.close();
-        
-		// end simulation on ua server
-		stopSimulation();
-		
-		iotClient.shutdown();
-		
-		// Notify the clients about a shutdown, with a 5 second delay
-		uaServer.shutdown(5, new LocalizedText("Closed by user", Locale.ENGLISH));
-		
-		System.out.println("Server: shutdown");
-	}
-	
-	private void closeConnectionToClient(Socket clientSocket) throws IOException {
-        // end communications
-        is.close();
-        is = null;
-        os.close();
-        os = null;
-        clientSocket.close();
-        clientSocket = null;
-	}
-	
-	
-	
-	// Simulation
-	
-	private final ScheduledExecutorService simulator = Executors.newScheduledThreadPool(10);
-	private final Runnable simulationTask = new Runnable() {
-		@Override
-		public void run() {
-			if (uaServer.isRunning()) {
-				logger.debug("Simulating");
-				simulate();
-			}
-		}
-	};
-	
-	protected void simulate() {
-		myNodeManager.simulate(); 
-		//myBigNodeManager.simulate();
-	}
-
-	/**
-	 * Starts the simulation of the level measurement.
-	 */
-	protected void startSimulation() {
-		simulator.scheduleAtFixedRate(simulationTask, 1000, 1000, TimeUnit.MILLISECONDS);
-		logger.info("Simulation started.");
-	}
-
-	/**
-	 * Ends simulation.
-	 */
-	protected void stopSimulation() {
-		simulator.shutdown();
-		logger.info("Simulation stopped.");
-	}
-
-	
-	
-	// TODO: possibly obsolete methods. Copied from the original AggregateServerConsoleServer
-
-	protected void initHistory() {
-		for (UaVariableNode v : myNodeManager.getHistorizableVariables())
-			myHistorian.addVariableHistory(v);
-		for (UaObjectNode o : myNodeManager.getHistorizableEvents())
-			myHistorian.addEventHistory(o);
-	}
-
-	/**
-	 * Initialize the information to the Server BuildInfo structure
-	 */
-	private void initBuildInfo() {
-		// Initialize BuildInfo - using the version info from the SDK
-		// You should replace this with your own build information
-		final BuildInfoTypeNode buildInfo = uaServer.getNodeManagerRoot().getServerData().getServerStatusNode().getBuildInfoNode();
-
-		// Fetch version information from the package manifest
-		final Package sdkPackage = UaServer.class.getPackage();
-		final String implementationVersion = sdkPackage.getImplementationVersion();
-		if (implementationVersion != null) {
-			int splitIndex = implementationVersion.lastIndexOf(".");
-			final String softwareVersion = implementationVersion.substring(0, splitIndex);
-			String buildNumber = implementationVersion.substring(splitIndex + 1);
-
-			buildInfo.setManufacturerName(sdkPackage.getImplementationVendor());
-			buildInfo.setSoftwareVersion(softwareVersion);
-			buildInfo.setBuildNumber(buildNumber);
-		}
-
-//		final URL classFile = UaServer.class.getResource("fi/opc/ua/server/AggregateServer.class");
-		final URL classFile = UaServer.class.getResource("/com/prosysopc/ua/samples/server/SampleConsoleServer.class");
-		if (classFile != null) {
-			final File mfFile = new File(classFile.getFile());
-			GregorianCalendar c = new GregorianCalendar();
-			c.setTimeInMillis(mfFile.lastModified());
-			buildInfo.setBuildDate(new DateTime(c));
-		}
+	private void initMappingEngine() {
+		mappingEngine = new MappingEngine();
+		mappingEngine.Initialize();
 	}
 
 	private void initInternal(int port, int httpsPort, String applicationName) throws SecureIdentityException, IOException, UaServerException {
@@ -790,9 +276,440 @@ public class AggregateServer {
 		uaServer.getSubscriptionManager().setMaxSubscriptionCount(500);
 
 		// You can do your own additions to server initializations here
-
 	}
 
+	
+	
+	// variables
+	protected static final String DONE = "done";
+	protected static final String ERROR = "error";
+	
+	protected static final String EVENT = "event";
+	protected static final String DIAG = "diag";
+	protected static final String LIST = "list";
+	protected static final String INSERT = "insert";
+	protected static final String INSERTANDMAP = "insert_map";
+	protected static final String SHUTDOWN = "shutdown";
+	protected static final String DISCONNECT = "disconnect";
+	protected static final String IOTCLIENT = "iot";
+	
+	private static String APP_NAME = "AggregateServer";
+	private static String discoveryServerUrl = "opc.tcp://localhost:4840";
+	
+	private DataInputStream is;
+	private PrintStream os;
+
+	private static Logger logger = Logger.getLogger(AggregateServer.class);
+	
+	private static AggregateServerConsoleClient internalClient = new AggregateServerConsoleClient();
+	private static NodeManagerListener myNodeManagerListener = new ASNodeManagerListener();
+	private static ASIoManagerListener MyIOListener = new ASIoManagerListener();
+	private static ASHistorian myHistorian = new ASHistorian();
+	private final CertificateValidationListener validationListener = new ASCertificateValidationListener();
+	private final UserValidator userValidator = new ASUserValidator();
+
+	protected NodeManagerUaNode complianceNodeManager;
+	protected int complianceNamespaceIndex;
+	private FolderType staticVariableFolder;
+	private FolderType staticArrayVariableFolder;
+	private FolderType dataItemFolder;
+	private FolderType analogItemFolder;
+	private FolderType analogItemArrayFolder;
+	private FolderType deepFolder;
+	private FileNodeManager fileNodeManager;
+	
+	private static ASNodeManager myNodeManager;
+	private static UaServer uaServer;
+	
+	private static List<TargetServer> clientList = new ArrayList<TargetServer>();
+	
+	private IoTTicketClient iotClient;
+	private MappingEngine mappingEngine;
+	
+	
+    // Actions
+    
+	//TODO: untested
+	private String enableDiagnostics() {
+		try {
+			final UaProperty enabledFlag = uaServer.getNodeManagerRoot().getServerData().getServerDiagnosticsNode().getEnabledFlagNode();
+			boolean newValue = !((Boolean) enabledFlag.getValue().getValue().getValue());
+			enabledFlag.setValue(Boolean.valueOf(newValue));
+			System.out.println("Server Diagnostics " + (newValue ? "Enabled" : "Disabled"));
+			return DONE;
+		} catch (StatusException e) {
+			printErr(e);
+		}
+		return ERROR;
+	}
+
+	//TODO: untested
+	private String sendEvent() {
+		myNodeManager.sendEvent();
+		return DONE;
+	}
+	
+	private String listServers() {
+		System.out.println("Sending server list to client");
+		System.out.println("    -Server list size: " + clientList.size());
+		
+		if(clientList.size() == 0) {
+			writeToOutputStream("Server list empty");
+			return ERROR;
+		}
+		
+		int i = 1;
+		for (TargetServer server : clientList) {
+			try {
+				writeToOutputStream(i + ": " + ((UaProperty)server.getClient().client.getAddressSpace().getNode(new NodeId(0,2254))).getValue().getValue().toString() + "(Namespaceindex " + server.getNodeManager().getNamespaceIndex() + ")");
+			} catch (ServiceException | AddressSpaceException e) {
+				printErr(e);
+				writeToOutputStream("Error printing server list");
+				return ERROR;
+			}
+			i += 1;
+		}
+
+		try{
+			writeToOutputStream(DONE);
+	
+			System.out.println("Waiting client input");
+			
+			String input = readFromInputStream();
+			
+			System.out.println("Client: " + input);
+			
+			int ind = Integer.parseInt(input) - 1;
+			//TODO: add new rule manager input here
+			//List<MappableType> ruleFileResults = readRuleFile(clientList.get(ind).getClient());
+			
+			//loopedIds.clear();
+			mappingEngine.deleteNodesByNameSpaceIndex(uaServer, clientList.get(ind).getNodeManager(), internalClient, Identifiers.RootFolder);
+	
+			//loopedIds.clear();
+			//copyAddressSpace(Identifiers.RootFolder, ruleFileResults, clientList.get(ind));
+			
+			System.out.println("Sending server list to client done");
+			
+			return DONE;
+		} catch (Exception e) {
+			printErr(e);
+		}
+			
+		return ERROR;
+	}
+
+	private String insertServer(String address) {
+		AggregateServerConsoleClient newClient = new AggregateServerConsoleClient();
+		
+		String[] clientargs = address.split(" ");
+		for (TargetServer ts : clientList) {
+			if (clientargs[clientargs.length-1].equals(ts.getNodeManager().getNamespaceUri())) {
+				writeToOutputStream("Server already added, remap from server list if necessary");
+				return DONE;
+			}
+		}
+
+		newClient.parseCmdLineArgs(clientargs);
+		try {
+			newClient.initialize(clientargs);
+			newClient.storeInternalClient(internalClient);
+			newClient.connect();
+			if (newClient.client.isConnected()) {
+				UaProperty serverArray = newClient.client.getAddressSpace().getNode(new NodeId(0,2253)).getProperty(new QualifiedName(0,"ServerArray"));
+				uaServer.addToServerArray(serverArray.getValue().getValue().toString());
+				ASNodeManager newNodeManager = createNodeManager(serverArray.getValue().getValue().toString());
+				TargetServer newServer = new TargetServer(newClient, newNodeManager);
+				clientList.add(newServer);
+				writeToOutputStream("Server added successfully");
+				return DONE;
+			} else {
+				newClient = null;
+				writeToOutputStream("Could not connect to server");
+				return ERROR;
+			}
+		} catch (URISyntaxException | SecureIdentityException | IOException
+				| ServerListException | StatusException | AddressSpaceException | ServiceException e) {
+			printErr(e);
+		}
+
+		writeToOutputStream("Adding the server failed");
+		return ERROR;
+	}
+	
+	private String insertAndMapServer(String address) {
+		String status = insertServer(address);
+		
+		if(status != ERROR)
+		{
+			writeToOutputStream("Mapping server address space...");
+			mappingEngine.MapAddressSpace(Identifiers.RootFolder, clientList.get(clientList.size()-1));
+			writeToOutputStream("Server address space mapped");
+		}
+		
+		return status;
+	}
+
+	private String toggleIoTClient() {
+		String status = DONE;
+		
+		if(iotClient == null) {
+			writeToOutputStream("Starting IoT client...");
+			
+			if(iotClient == null)
+				iotClient = new IoTTicketClient();
+			
+			try {
+				iotClient.automaticInitializeAndStart("opc.tcp://localhost:52520/OPCUA/AggregateServer");
+				writeToOutputStream("IoT client started");
+			} catch (ValidAPIParamException | URISyntaxException
+					| ParserConfigurationException | SAXException | IOException
+					| ServiceException | StatusException | ServiceResultException
+					| AddressSpaceException e) {
+				System.out.println("Starting IoT client failed");
+				writeToOutputStream("Starting IoT client failed");
+				printErr(e);
+				status = ERROR;
+			}
+		} else {
+			writeToOutputStream("Closing IoT client...");
+			
+			try {
+				iotClient.shutdown();
+				iotClient = null;
+			} catch (ServiceException e) {
+				System.out.println("Closing IoT client failed");
+				writeToOutputStream("Closing IoT client failed");
+				printErr(e);
+				status = ERROR;
+			}
+		}
+
+		return status;
+	}
+	
+
+    
+	// public methods
+	
+	/**
+	 * Run the server with java sockets open for communication
+	 * @param socket
+	 * @throws UaServerException 
+	 */
+	public void runSocketServer(int socket, boolean enableSessionDiagnostics) {
+		try {
+			uaServer.start();
+		} catch (UaServerException e) {
+			printErr(e);
+			System.out.println("Unable to start UA server. Halting startup process.");
+			return;
+		}
+		
+		initHistory();
+		if (enableSessionDiagnostics)
+			uaServer.getNodeManagerRoot().getServerData().getServerDiagnosticsNode().setEnabled(true);
+		
+		// initialize the internal client which is used to browse the address space of the aggregating server, as well as to delete and write to nodes
+		String[] internalargs = new String[1];
+		
+		
+		internalargs[0] = "opc.tcp://localhost:52520/OPCUA/AggregateServer";
+		internalClient.parseCmdLineArgs(internalargs);
+		try {
+			internalClient.initialize(internalargs);
+		} catch (SessionActivationException e) {
+			e.printStackTrace();
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		} catch (SecureIdentityException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (ServerListException e) {
+			e.printStackTrace();
+		}
+		internalClient.connect();
+	
+		// initialize socket communications
+		ServerSocket serverSocket = null;
+        String input;
+        String output;
+        Socket clientSocket = null;
+        
+        System.out.println("Server: AggregateServer started");
+
+        try {
+        	serverSocket = new ServerSocket(socket);
+        }
+        catch (IOException e) {
+        	System.out.println(e);
+        }
+        
+        while(true) {
+	        try {
+		        clientSocket = serverSocket.accept();
+	            System.out.println("Server: client connected");
+	            
+		        is = new DataInputStream(clientSocket.getInputStream());
+		        os = new PrintStream(clientSocket.getOutputStream());
+		        
+		        writeToOutputStream(iotClient != null ? "connected" : "disconnected");
+		        
+		        while (true) {
+		            System.out.println("Server: waiting for client input");
+					input = readFromInputStream();
+	
+					System.out.println("Client: " + input);
+					
+					// process client input
+					output = parseClientInput(input);
+	
+					if(output != null)
+						writeToOutputStream(output);
+					
+					if(output != null && output.equals(DISCONNECT)) {
+						// current client disconnected
+						System.out.println("Server: Current client disconnected");
+						closeConnectionToClient(clientSocket);
+						break;
+					}
+					
+					// shutdown command
+					if(output != null && output.equals(SHUTDOWN)) {
+						shutdown(serverSocket, clientSocket);
+						return;
+					}
+	            }
+		    }   
+	        catch (IOException | ServiceException e) {
+	            printErr(e);
+	            System.out.println("Server: Lost connection to client");
+	            if(clientSocket != null && !clientSocket.isClosed()) {
+	            	try {
+	            		System.out.println("DEBUG: Lost connection force disconnect");
+						closeConnectionToClient(clientSocket);
+	            	} catch(Exception e2) {
+	            		printErr(e2);
+	            	}
+	            }
+	        }
+        }
+	}
+
+	private String parseClientInput(String message) {
+		String ret = null;
+
+		if(message != null)
+		{
+			String[] params = message.split("\\|");
+			
+			switch(params[0]) {
+				case DIAG:
+					ret = enableDiagnostics();
+					break;
+				case EVENT:
+					ret = sendEvent();
+					break;
+				case LIST: // list servers to the client, and map the selected server
+					ret = listServers();
+					break;
+				case INSERT: // insert the given server to the server list
+					if(params.length>1)
+						ret = insertServer(params[1]);
+					else
+						ret = ERROR;
+					break;
+				case INSERTANDMAP: // insert the server to the server list and map instantly
+					if(params.length>1)
+						ret = insertAndMapServer(params[1]);
+					else
+						ret = ERROR;
+					break;
+				case IOTCLIENT:
+					ret = toggleIoTClient();
+					break;
+				case SHUTDOWN:
+					ret = SHUTDOWN;
+					break;
+				case DISCONNECT:
+					ret = DISCONNECT;
+					break;
+				default:
+					writeToOutputStream("Invalid server command!");
+					ret = ERROR;
+					break;
+			}
+		}
+		
+		return ret;
+	}
+	
+	private void shutdown(ServerSocket serverSocket, Socket clientSocket) throws IOException, ServiceException {
+		System.out.println("Server: shutdown initiated from client side");
+        
+        serverSocket.close();
+        
+		iotClient.shutdown();
+		
+		// Notify the clients about a shutdown, with a 5 second delay
+		uaServer.shutdown(5, new LocalizedText("Closed by user", Locale.ENGLISH));
+		
+		System.out.println("Server: shutdown");
+	}
+	
+	private void closeConnectionToClient(Socket clientSocket) throws IOException {
+        // end communications
+        is.close();
+        is = null;
+        os.close();
+        os = null;
+        clientSocket.close();
+        clientSocket = null;
+	}
+	
+
+	
+	// TODO: possibly obsolete methods. Copied from the original AggregateServerConsoleServer
+
+	protected void initHistory() {
+		for (UaVariableNode v : myNodeManager.getHistorizableVariables())
+			myHistorian.addVariableHistory(v);
+		for (UaObjectNode o : myNodeManager.getHistorizableEvents())
+			myHistorian.addEventHistory(o);
+	}
+
+	/**
+	 * Initialize the information to the Server BuildInfo structure
+	 */
+	private void initBuildInfo() {
+		// Initialize BuildInfo - using the version info from the SDK
+		// You should replace this with your own build information
+		final BuildInfoTypeNode buildInfo = uaServer.getNodeManagerRoot().getServerData().getServerStatusNode().getBuildInfoNode();
+
+		// Fetch version information from the package manifest
+		final Package sdkPackage = UaServer.class.getPackage();
+		final String implementationVersion = sdkPackage.getImplementationVersion();
+		if (implementationVersion != null) {
+			int splitIndex = implementationVersion.lastIndexOf(".");
+			final String softwareVersion = implementationVersion.substring(0, splitIndex);
+			String buildNumber = implementationVersion.substring(splitIndex + 1);
+
+			buildInfo.setManufacturerName(sdkPackage.getImplementationVendor());
+			buildInfo.setSoftwareVersion(softwareVersion);
+			buildInfo.setBuildNumber(buildNumber);
+		}
+
+//		final URL classFile = UaServer.class.getResource("fi/opc/ua/server/AggregateServer.class");
+		final URL classFile = UaServer.class.getResource("/com/prosysopc/ua/samples/server/SampleConsoleServer.class");
+		if (classFile != null) {
+			final File mfFile = new File(classFile.getFile());
+			GregorianCalendar c = new GregorianCalendar();
+			c.setTimeInMillis(mfFile.lastModified());
+			buildInfo.setBuildDate(new DateTime(c));
+		}
+	}
+	
 	/**
 	 * Create a sample address space with a new folder, a device object, a level
 	 * variable, and an alarm condition.
@@ -835,10 +752,6 @@ public class AggregateServer {
 		// My HistoryManager
 		myNodeManager.getHistoryManager().setListener(myHistorian);
 
-		// A sample node manager that can handle a big amount of UA nodes
-		// without creating UaNode objects in memory
-		createBigNodeManager();
-
 		// More specific nodes to enable OPC UA compliance testing of more
 		// advanced features
 		createComplianceNodes();
@@ -877,18 +790,6 @@ public class AggregateServer {
 		// } catch (Exception e) {
 		// throw new RuntimeException(e);
 		// }
-	}
-
-	/**
-	 * Create a sample node manager, which does not use UaNode objects. These
-	 * are suitable for managing big address spaces for data that is in practice
-	 * available from another existing subsystem.
-	 */
-	private void createBigNodeManager() {
-		myBigNodeManager = new ASBigNodeManager(
-				uaServer,
-				"http://www.prosysopc.com/OPCUA/SampleBigAddressSpace",
-				bigAddressSpaceNodes);
 	}
 
 	/**
@@ -1216,222 +1117,6 @@ public class AggregateServer {
 		//System.out.println("DEBUG writeOutput: " + line);
 	}
 
-	/*
-	 * Calls the RulesManager class ReadRuleFile-method.
-	 */
-	private List<MappableType> readRuleFile(AggregateServerConsoleClient c) {
-		List<MappableType> resultList = null;
-		String[] uriArray = c.client.getAddressSpace().getNamespaceTable().toArray();
-		String filename = RULE_FILE;
-		RuleManager rm = new RuleManager();
-		
-		try {
-			resultList = rm.ReadRuleFile(filename, uriArray);
-		} catch (Exception e) {
-			printErr(e);
-		}
-		
-		return resultList;
-	}
-
-	/*
-	 * This method browses recursively through the address space searching for nodes which are defined as mappable types. When a node is
-	 * found, all child nodes of that node are separately grouped with groupDeviceChildElements. The resulting node set is then passed to the
-	 * rule engine as many times as the number of agenda groups defined for that specific mappable type Id. GroupDeviceChildElements also returns
-	 * a list of any additional mappable nodes that may be found from the children of the first mappable node. The children of these additional
-	 * nodes are then grouped with groupDeviceChildElementsLocalList, which is basically the same as groupDeviceChildElements, but it uses a local
-	 * IdMap to avoid mix ups. All of these additional groups are then passed to the rule engine in the same manner as the first group returned by
-	 * groupDeviceChildElements.
-	 */
-	protected void copyAddressSpace(NodeId nodeId, List<MappableType> mappableTypes, TargetServer ts) {
-		AddressSpace sourceAddressSpace = ts.getTargetServerAddressSpace();
-		sourceAddressSpace.setReferenceTypeId(Identifiers.HierarchicalReferences);
-		sourceAddressSpace.setBrowseDirection(BrowseDirection.Forward);
-		loopedIds.add(nodeId);
-		ReferenceDescription ref;
-		List<NodeId> mappedAdditionals = new ArrayList<NodeId>();
-		List<NodeId> loopedIdsL = new ArrayList<NodeId>();
-		List<NodeId> types = new ArrayList<NodeId>();
-		for (int a = 0; a < mappableTypes.size(); a++) {
-			types.add(mappableTypes.get(a).getType());
-		}
-		Stack<NodeId> additionalMappableIds = new Stack<NodeId>();
-		
-		try {
-			List<ReferenceDescription> references = sourceAddressSpace.browse(nodeId);
-			for (int i = 0; i < references.size(); i++)
-			{
-				ref = references.get(i);
-				try {
-					NodeId currentId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
-					if (!loopedIds.contains(currentId))
-					{
-						loopedIds.add(currentId);
-						//Check if the node's type definition is defined as mappable
-						if(types.contains(sourceAddressSpace.getTypeDefinition(currentId)))
-						{
-							List<UaNode> childListArgument = new ArrayList<UaNode>();
-							childListArgument.add(sourceAddressSpace.getNode(currentId));
-							additionalMappableIds.clear();
-							
-							//Get child nodes for the current node and pass them all to the rule engine
-							List<UaNode> devChildren = groupDeviceChildElements(sourceAddressSpace, currentId, childListArgument, additionalMappableIds, types, sourceAddressSpace.getTypeDefinition(currentId));
-							for (MappableType current : mappableTypes) {
-								System.out.println("current type Id: " + sourceAddressSpace.getTypeDefinition(currentId).getNamespaceIndex() + "," + sourceAddressSpace.getTypeDefinition(currentId).getValue().toString());
-								System.out.println("mappableId: " + current.getType().getNamespaceIndex() + "," + current.getType().getValue().toString());
-								if (current.getType().equals(sourceAddressSpace.getTypeDefinition(currentId))) {
-									ts.getNodeManager().checkRulesForDevice(sourceAddressSpace, currentId, devChildren, current.getAgenda());
-								}
-							}
-							
-							devChildren.clear();
-							
-							//Check whether additional mappable nodes were found, group them and pass them to the rule engine
-							while (!additionalMappableIds.empty()) {
-								devChildren.clear();
-								NodeId mid = additionalMappableIds.pop();
-								mappedAdditionals.add(mid);
-								System.out.println("Found additional mappable type: " + sourceAddressSpace.getNode(mid).getDisplayName().getText());
-								
-								childListArgument.clear();
-								childListArgument.add(sourceAddressSpace.getNode(mid));
-								loopedIdsL.clear();
-								loopedIdsL.add(mid);
-								devChildren = groupDeviceChildElementsLocalList(sourceAddressSpace, mid, childListArgument, additionalMappableIds, types, loopedIdsL, mappedAdditionals, sourceAddressSpace.getTypeDefinition(mid));
-								loopedIdsL.clear();
-								
-								for (MappableType current : mappableTypes) {
-									System.out.println("current type Id, additional: " + sourceAddressSpace.getTypeDefinition(mid).getNamespaceIndex() + "," + sourceAddressSpace.getTypeDefinition(mid).getValue().toString());
-									System.out.println("mappableId: " + current.getType().getNamespaceIndex() + "," + current.getType().getValue().toString());
-									if (current.getType().equals(sourceAddressSpace.getTypeDefinition(mid))) {
-										ts.getNodeManager().checkRulesForDevice(sourceAddressSpace, mid, devChildren, current.getAgenda());
-									}
-								}					
-							}
-						}
-						copyAddressSpace(currentId, mappableTypes, ts);
-					}
-				} catch (ServiceResultException e) {
-					e.printStackTrace();
-				} catch (AddressSpaceException e) {
-					
-				}
-			}
-		} catch (ServiceException e) {
-			e.printStackTrace();
-		} catch (StatusException e) {
-			e.printStackTrace();
-		}
-		
-		//Update IdMap for IOListener
-		ts.getNodeManager().getCustomIOListener().updateIdMap(ts);
-		((ASNodeManagerListener) myNodeManagerListener).updateIdMap(ts);
-		ts.client.updateIdMap(ts);
-	}
-
-	/*
-	 * Groups child elements for nodes which have a type definition that is defined as mappable
-	 */
-	private List<UaNode> groupDeviceChildElements(AddressSpace AP, NodeId ID, List<UaNode> deviceChildren, Stack<NodeId> additionalMappingRequired, List<NodeId> allMappableTypes, ExpandedNodeId initialType) throws ServiceException, AddressSpaceException {
-		AP.setReferenceTypeId(Identifiers.HierarchicalReferences);
-		AP.setBrowseDirection(BrowseDirection.Forward);
-		ReferenceDescription ref;
-		try {
-			List<ReferenceDescription> references = AP.browse(ID);
-			for (int i = 0; i < references.size(); i++) {
-				ref = references.get(i);
-				NodeId currentId = AP.getNamespaceTable().toNodeId(ref.getNodeId());
-				if (!loopedIds.contains(currentId))	{
-					loopedIds.add(currentId);
-					deviceChildren.add(AP.getNode(currentId));
-				}
-				if(allMappableTypes.contains(AP.getTypeDefinition(currentId)) && !AP.getTypeDefinition(currentId).equals(initialType)) {
-					additionalMappingRequired.push(currentId);
-				}		
-				groupDeviceChildElements(AP, currentId, deviceChildren, additionalMappingRequired, allMappableTypes, initialType);
-			}
-		} catch (StatusException e) {
-			e.printStackTrace();
-		} catch (ServiceResultException e) {
-			e.printStackTrace();
-		}
-		return deviceChildren;
-	}
-
-	/*
-	 * Groups the children of additional mappable nodes that are found as children of the first mappable node found by copyAddressSpace
-	 */
-	private List<UaNode> groupDeviceChildElementsLocalList(AddressSpace AP, NodeId ID, List<UaNode> deviceChildren, Stack<NodeId> additionalMappingRequired, List<NodeId> allMappableTypes, List<NodeId> loopedIdsL, List<NodeId> alreadyMapped, ExpandedNodeId initialType) throws ServiceException, AddressSpaceException {	
-		AP.setReferenceTypeId(Identifiers.HierarchicalReferences);
-		AP.setBrowseDirection(BrowseDirection.Forward);
-		ReferenceDescription ref;
-		try {
-			List<ReferenceDescription> references = AP.browse(ID);
-			for (int i = 0; i < references.size(); i++) {
-				ref = references.get(i);
-				NodeId currentId = AP.getNamespaceTable().toNodeId(ref.getNodeId());
-				if (!loopedIdsL.contains(currentId))	{
-					loopedIdsL.add(currentId);
-					deviceChildren.add(AP.getNode(currentId));
-				}
-				groupDeviceChildElementsLocalList(AP, currentId, deviceChildren, additionalMappingRequired, allMappableTypes, loopedIdsL, alreadyMapped, initialType);
-			}
-		} catch (StatusException e) {
-			e.printStackTrace();
-		} catch (ServiceResultException e) {
-			e.printStackTrace();
-		}
-		return deviceChildren;
-	}
-
-	/*
-	 * This is called whenever an aggregated server is mapped again from the server list to avoid duplicate nodes.
-	 */
-	protected void deleteNodesByNameSpaceIndex(ASNodeManager nm, AggregateServerConsoleClient c, NodeId id) {
-		loopedIds.clear();
-		List<NodeId> nodesToBeDeleted = new ArrayList<NodeId>();
-		getNodesToBeDeleted(nm, c, id, nodesToBeDeleted);
-		for (NodeId deleteid : nodesToBeDeleted) {
-			AggregateServerConsoleServer.server.getNodeManagerRoot().beginModelChange();
-			try {
-				nm.deleteNode(deleteid, true, false);
-			} catch (StatusException e) {
-				e.printStackTrace();
-			}
-			AggregateServerConsoleServer.server.getNodeManagerRoot().endModelChange();
-		}	
-	}
-
-	/*
-	 * This is called by deleteNodesByNameSpaceIndex to browse the address space for all nodes with the specified namespace-
-	 * index, which are then deleted.
-	 */
-	protected void getNodesToBeDeleted(ASNodeManager nm, AggregateServerConsoleClient c, NodeId id, List<NodeId> nodesToBeDeleted) {
-		int ns = nm.getNamespaceIndex();
-		AddressSpace AP = c.client.getAddressSpace();
-		ReferenceDescription ref;
-		try {
-			List<ReferenceDescription> references = AP.browse(id);
-			for (int i = 0; i < references.size(); i++)	{
-				ref = references.get(i);
-				try {
-					NodeId currentId = AP.getNamespaceTable().toNodeId(ref.getNodeId());
-					if (!loopedIds.contains(currentId))	{
-						loopedIds.add(currentId);
-						if (currentId.getNamespaceIndex() == ns) {
-							nodesToBeDeleted.add(currentId);
-						}
-						getNodesToBeDeleted(nm, c, currentId, nodesToBeDeleted);
-					}			
-				} catch (ServiceResultException e) {
-					e.printStackTrace();
-				}
-			}
-		} catch (ServiceException | StatusException e) {
-			e.printStackTrace();
-		}	
-	}
-
 	private static ASNodeManager createNodeManager(String ns) throws UaInstantiationException, StatusException {
 		ASNodeManager newNodeManager = new ASNodeManager(uaServer, ns);
 		newNodeManager.addListener(myNodeManagerListener);
@@ -1448,9 +1133,4 @@ public class AggregateServer {
 		if (e.getCause() != null)
 			System.err.println("Caused by: " + e.getCause());
 	}
-
-	private static void printErr(String e) {
-		System.err.println(e);
-	}
-
 }

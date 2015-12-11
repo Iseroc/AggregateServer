@@ -35,7 +35,7 @@ public class ASUserValidator implements UserValidator {
 		// Return true, if the user is allowed access to the server
 		// Note that the UserIdentity can be of different actual types,
 		// depending on the selected authentication mode (by the client).
-		AggregateServerConsoleServer.println("onValidate: userIdentity=" + userIdentity);
+		System.out.println("onValidate: userIdentity=" + userIdentity);
 		if (userIdentity.getType().equals(UserTokenType.UserName))
 			if (userIdentity.getName().equals("opcua")
 					&& userIdentity.getPassword().equals("opcua"))
