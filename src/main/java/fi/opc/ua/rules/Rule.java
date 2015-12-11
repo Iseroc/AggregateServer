@@ -11,4 +11,5 @@ public class Rule {
 	public String LHS = null;
 	public String RHS = null;
 	public String Type = null;
+	public String NodeClass = null;
 }
