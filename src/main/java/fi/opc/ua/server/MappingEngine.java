@@ -101,6 +101,7 @@ public class MappingEngine {
 		for(MatchingRule mRule : matchingRules) {
 			findOrCreateNode(mRule, ts);
 		}
+		
 	}
 	
 	private void findOrCreateNode(MatchingRule mRule, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
