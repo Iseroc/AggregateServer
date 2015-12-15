@@ -40,7 +40,7 @@ public class RuleNode {
 			matches = false;
 		
 		//match type
-		UaReference typeRef = node.getReference(Identifiers.HasTypeDefinition, true);
+		UaReference typeRef = node.getReference(Identifiers.HasTypeDefinition, false);
 		if(Type != null && Type != "" && typeRef != null && !typeRef.getTargetNode().getBrowseName().getName().equals(Type))
 			matches = false;
 		
@@ -54,6 +54,19 @@ public class RuleNode {
 		System.out.println("Comparing to Node:  [" + compType + "]" + node.getBrowseName().getName());
 		
 		this.matchingNodeId = node.getNodeId();
+		
+		return matches;
+	}
+	
+	public boolean MatchesWithRHSUaNode(UaNode node) {
+		boolean matches = true;
+		
+		System.out.println("Matching nodeId: " + matchingNodeId);
+		System.out.println("Compare nodeId:  " + node.getNodeId());
+		System.out.println("CompareTo value: " + this.matchingNodeId.compareTo(node.getNodeId()));
+		
+		if(this.matchingNodeId != null && this.matchingNodeId.compareTo(node.getNodeId()) != 0)
+			matches = false;
 		
 		return matches;
 	}

@@ -59,7 +59,6 @@ public class MatchingRule {
 		RHSNodes = new ArrayList<RuleNode>();
 		for(String s : nodes) {
 			RHSNodes.add(new RuleNode(s));
-			System.out.println("Create RHS from " + s + " to have ref " + RHSNodes.get(RHSNodes.size()-1).Reference);
 		}
 		
 		//connect references from LHS to RHS if they exist

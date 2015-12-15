@@ -545,6 +545,13 @@ public class AggregateServer {
         
         System.out.println("Server: AggregateServer started");
 
+        
+        
+        //TODO: TEMPORARY TESTING AUTOMAP
+		insertAndMapServer("opc.tcp://Rickenbacker2:52510/OPCUA/BoilerServer");
+		
+        
+        
         try {
         	serverSocket = new ServerSocket(socket);
         }
@@ -1119,8 +1126,8 @@ public class AggregateServer {
 	}
 	
 	private void writeToOutputStream(String line) {
-		os.println(line);
-		//System.out.println("DEBUG writeOutput: " + line);
+		if(os != null)
+			os.println(line);
 	}
 
 	private static ASNodeManager createNodeManager(String ns) throws UaInstantiationException, StatusException {

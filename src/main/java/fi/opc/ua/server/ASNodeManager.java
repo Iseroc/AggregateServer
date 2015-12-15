@@ -37,6 +37,7 @@ import com.prosysopc.ua.nodes.UaNode;
 import com.prosysopc.ua.nodes.UaNodeFactoryException;
 import com.prosysopc.ua.nodes.UaObject;
 import com.prosysopc.ua.nodes.UaObjectType;
+import com.prosysopc.ua.nodes.UaReference;
 import com.prosysopc.ua.nodes.UaType;
 import com.prosysopc.ua.nodes.UaVariable;
 import com.prosysopc.ua.server.CallableListener;
@@ -198,6 +199,7 @@ public class ASNodeManager extends NodeManagerUaNode {
 
 	}
 
+	
 	/**
 	 * Creates an alarm, if it is not active
 	 *
@@ -233,12 +235,9 @@ public class ASNodeManager extends NodeManagerUaNode {
 		this.getEventManager().setListener(myEventManagerListener);
 
 		// UA types and folders which we will use
-		final UaObject objectsFolder = getServer().getNodeManagerRoot()
-				.getObjectsFolder();
-		final UaType baseObjectType = getServer().getNodeManagerRoot().getType(
-				Identifiers.BaseObjectType);
-		final UaType baseDataVariableType = getServer().getNodeManagerRoot()
-				.getType(Identifiers.BaseDataVariableType);
+		final UaObject objectsFolder = getServer().getNodeManagerRoot().getObjectsFolder();
+		final UaType baseObjectType = getServer().getNodeManagerRoot().getType(Identifiers.BaseObjectType);
+		final UaType baseDataVariableType = getServer().getNodeManagerRoot().getType(Identifiers.BaseDataVariableType);
 
 		// Folder for my objects
 		final NodeId myObjectsFolderId = new NodeId(ns, "MyObjectsFolder");
@@ -327,6 +326,56 @@ public class ASNodeManager extends NodeManagerUaNode {
 		// A sample method node
 		createMethodNode();
 	}
+	
+	public UaNode CreateComponentObjectNode(String name, UaType type, UaNode parent) {
+
+		final NodeId nodeId = new NodeId(getNamespaceIndex(), name + UUID.randomUUID());
+		UaObjectNode node = new UaObjectNode(this, nodeId, name, Locale.ENGLISH);
+		node.setTypeDefinition(type);
+		parent.addReference(node, Identifiers.HasComponent, false);
+
+		return node;
+	}
+	
+	public UaNode CreateComponentVariableNode(String name, UaType type, UaNode parent) {
+
+		final NodeId nodeId = new NodeId(getNamespaceIndex(), name + UUID.randomUUID());
+		UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.PropertyType);
+		parent.addComponent(node);
+
+		return node;
+	}
+	
+	public UaObjectType CreateObjectTypeNode(String name) throws StatusException {
+		final UaType baseObjectType = getServer().getNodeManagerRoot().getType(Identifiers.BaseObjectType);
+		
+		final NodeId typeId = new NodeId(getNamespaceIndex(), name + UUID.randomUUID());
+		UaObjectType type = new UaObjectTypeNode(this, typeId, name, Locale.ENGLISH);
+		this.addNodeAndReference(baseObjectType, type, Identifiers.HasSubtype);
+		
+		return type;
+	}
+	
+	public UaObjectType ContainsObjectType(String name) throws StatusException {
+		final UaType baseObjectType = getServer().getNodeManagerRoot().getType(Identifiers.BaseObjectType);
+		
+		System.out.println("Found baseObjectType " + baseObjectType);
+		
+		UaReference[] subTypes = baseObjectType.getReferences(Identifiers.HasSubtype, false);
+		
+		for(UaReference ref : subTypes) {
+			System.out.print("Checking subtype ");
+			UaObjectType subType = (UaObjectType)ref.getTargetNode();
+			System.out.print("Checking subtype " + subType.getBrowseName().getName());
+			if(subType != null && subType.getBrowseName().getName().equals(name))
+				return subType;
+		}
+		
+		return null;
+	}
+	
+	
+	
 	
 	public void createSampleAssetNode(String name) {
 		myObjectsFolder.initNodeVersion();
@@ -595,42 +644,6 @@ public class ASNodeManager extends NodeManagerUaNode {
 
 		//createAddressSpace();
 	}
-
-	/**
-	 *
-	 */
-	// protected void initMyEvent() {
-	// if (myEvent == null)
-	// myEvent = new MyEventType(this);
-	// }
-
-	/**
-	 * Send an event
-	 *
-	 * @throws StatusException
-	 */
-	// protected void sendEvent() throws StatusException {
-	// // 1. send a standard SystemEventType here
-	// SystemEventTypeNode newEvent = createEvent(SystemEventTypeNode.class);
-	//
-	// newEvent.setMessage("New event");
-	// // Set the severity of the event between 1 and 1000
-	// newEvent.setSeverity(1);
-	// // By default the event is sent for the "Server" object. If you want to
-	// // send it for some other object, use Source (or SourceNode), e.g.
-	// // newEvent.setSource(myDevice);
-	// triggerEvent(newEvent);
-	//
-	// // 2. Send our own event
-	//
-	// initMyEvent();
-	// myEvent.setSource(myObjectsFolder);
-	//
-	// myEvent.setMyVariable(myEvent.getMyVariable() + 1);
-	// myEvent.setMyProperty(DateTime.currentTime().toString());
-	// triggerEvent(myEvent);
-	// this.deleteNode(myEvent, true, true);
-	// }
 
 	void addNode(String name) {
 		// Initialize NodeVersion property, to enable ModelChangeEvents
