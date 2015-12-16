@@ -359,14 +359,10 @@ public class ASNodeManager extends NodeManagerUaNode {
 	public UaObjectType ContainsObjectType(String name) throws StatusException {
 		final UaType baseObjectType = getServer().getNodeManagerRoot().getType(Identifiers.BaseObjectType);
 		
-		System.out.println("Found baseObjectType " + baseObjectType);
-		
 		UaReference[] subTypes = baseObjectType.getReferences(Identifiers.HasSubtype, false);
 		
 		for(UaReference ref : subTypes) {
-			System.out.print("Checking subtype ");
 			UaObjectType subType = (UaObjectType)ref.getTargetNode();
-			System.out.print("Checking subtype " + subType.getBrowseName().getName());
 			if(subType != null && subType.getBrowseName().getName().equals(name))
 				return subType;
 		}

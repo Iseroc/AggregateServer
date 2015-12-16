@@ -14,13 +14,13 @@ public class MatchingRule {
 	private NodeId hasComponentId = new NodeId(0,47);
 	
 	private Rule rule;
-	public List<RuleNode> LHSNodes;
-	public List<RuleNode> RHSNodes;
+	public List<LHSRuleNode> LHSNodes;
+	public List<RHSRuleNode> RHSNodes;
 	
 	//**Ctor**
 	MatchingRule() {
-		LHSNodes = new ArrayList<RuleNode>();
-		RHSNodes = new ArrayList<RuleNode>();
+		LHSNodes = new ArrayList<LHSRuleNode>();
+		RHSNodes = new ArrayList<RHSRuleNode>();
 	}
 	
 	//**Public methods**
@@ -35,7 +35,7 @@ public class MatchingRule {
 		}
 		else {
 			//Did not match, clearing matchingNodeIds
-			for(RuleNode rNode : mRule.LHSNodes) {
+			for(LHSRuleNode rNode : mRule.LHSNodes) {
 				rNode.ClearMatchingNodeId();
 			}
 		}
@@ -47,25 +47,25 @@ public class MatchingRule {
 		this.rule = rule;
 		String[] nodes = rule.LHS.split("/");
 		
-		LHSNodes = new ArrayList<RuleNode>();
+		LHSNodes = new ArrayList<LHSRuleNode>();
 		for(String s : nodes) {
-			LHSNodes.add(new RuleNode(s));
+			LHSNodes.add(new LHSRuleNode(s));
 		}
 	}
 	
 	private void parseRuleRHS(){
 		String[] nodes = rule.RHS.split("/");
 		
-		RHSNodes = new ArrayList<RuleNode>();
+		RHSNodes = new ArrayList<RHSRuleNode>();
 		for(String s : nodes) {
-			RHSNodes.add(new RuleNode(s));
+			RHSNodes.add(new RHSRuleNode(s));
 		}
 		
 		//connect references from LHS to RHS if they exist
-		for(RuleNode rhsNode : RHSNodes) {
-			for(RuleNode lhsNode : LHSNodes) {
+		for(RHSRuleNode rhsNode : RHSNodes) {
+			for(LHSRuleNode lhsNode : LHSNodes) {
 				if(rhsNode.Reference.equals(lhsNode.Reference)) {
-					rhsNode.matchingNodeId = lhsNode.matchingNodeId;
+					rhsNode.MatchingNodeId = lhsNode.MatchingNodeId;
 					break;
 				}
 			}
@@ -76,9 +76,9 @@ public class MatchingRule {
 		//reached the end of LHSNodes rule list
 		if(index >= LHSNodes.size())
 			return true;
-		
-		if(this.LHSNodes.get(LHSNodes.size() - index - 1).MatchesWithUaNode(node)) {
-			//this node matches the node at LHSNodes size-index
+
+		//does the given node match the node at LHSNodes size-index
+		if(this.LHSNodes.get(LHSNodes.size() - index - 1).MatchWithUaNode(node)) {
 			
 			//get source parent node
 			UaNode sourceParentNode = node.getReference(hasComponentId, true).getSourceNode();

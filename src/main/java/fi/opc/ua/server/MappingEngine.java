@@ -13,6 +13,7 @@ import org.opcfoundation.ua.builtintypes.QualifiedName;
 import org.opcfoundation.ua.common.ServiceResultException;
 import org.opcfoundation.ua.core.BrowseDirection;
 import org.opcfoundation.ua.core.Identifiers;
+import org.opcfoundation.ua.core.NodeClass;
 import org.opcfoundation.ua.core.ReferenceDescription;
 
 import com.prosysopc.ua.ServiceException;
@@ -32,8 +33,9 @@ import com.prosysopc.ua.types.opcua.server.FolderTypeNode;
 
 import fi.opc.ua.client.AggregateServerConsoleClient;
 import fi.opc.ua.rules.MatchingRule;
+import fi.opc.ua.rules.RHSRuleNode;
 import fi.opc.ua.rules.RuleManager;
-import fi.opc.ua.rules.RuleNode;
+import fi.opc.ua.rules.LHSRuleNode;
 
 public class MappingEngine {
 
@@ -68,8 +70,6 @@ public class MappingEngine {
 				myObjectsNodeId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
 		}
 		
-		System.out.println("Found MyObjects folder to map");
-		
 		if(myObjectsNodeId != null)
 			browseAndMapNode(myObjectsNodeId, sourceAddressSpace, idList, ts);
 	}
@@ -93,6 +93,10 @@ public class MappingEngine {
 		}
 		catch (Exception e) {
 			System.out.println("Problem mapping node with NodeId " + nodeId);
+			System.err.println(e.toString());
+			e.printStackTrace();
+			if (e.getCause() != null)
+				System.err.println("Caused by: " + e.getCause());
 		}
 	}
 	
@@ -111,15 +115,15 @@ public class MappingEngine {
 		UaNode currentNode = entryNode;
 		
 		//find or build the tree of nodes from RHSNodes
-		for(RuleNode rNode : mRule.RHSNodes) {
-			System.out.println("Mapping RHSNode [" + rNode.Type + "]" + rNode.Name);
+		for(RHSRuleNode rNode : mRule.RHSNodes) {
+			System.out.println("*** Mapping RHSNode [" + rNode.Type + "]" + rNode.Name + "#" + rNode.Reference + " ***");
 			
 			//get all component children of current node, check if any one of them matches the rNode
 			UaNode refNode, matchingNode = null;
 			UaReference[] references = currentNode.getReferences();
 			for(UaReference ref : references) {
 				refNode = ref.getOppositeNode(currentNode);
-				if(rNode.MatchesWithRHSUaNode(refNode)) {
+				if(rNode.MatchWithUaNode(refNode, ts)) {
 					System.out.println("Found matching node: " + refNode.getBrowseName().getName());
 					matchingNode = refNode;
 					break;
@@ -130,11 +134,11 @@ public class MappingEngine {
 				currentNode = matchingNode;
 			}
 			else {
-				System.out.println("Creating a new object node with a reference: " + rNode.matchingNodeId);
+				System.out.println("Creating a new object node with a reference: " + rNode.MatchingNodeId);
 				//create a node to match rNode
 				ASNodeManager nm = ts.getNodeManager();
 				
-				UaNode sourceNode = ts.getTargetServerAddressSpace().getNode(rNode.matchingNodeId);
+				UaNode sourceNode = ts.getTargetServerAddressSpace().getNode(rNode.MatchingNodeId);
 				
 				String name = rNode.Name != null ? rNode.Name : sourceNode.getBrowseName().getName();
 				
@@ -142,39 +146,34 @@ public class MappingEngine {
 				
 				System.out.println("Got name " + name + " and type " + typeReference);
 				
-				String typeName = rNode.Type != null ? rNode.Type : 
-					typeReference != null ? typeReference.getTargetNode().getBrowseName().getName() : null;
-				
-				NodeId newId = new NodeId(nm.getNamespaceIndex(), name + UUID.randomUUID());
-				
-				System.out.println("Starting to create node");
+				String typeName = rNode.Type != null ? rNode.Type : typeReference != null ? typeReference.getTargetNode().getBrowseName().getName() : null;
 				
 				//get or create the node type
 				UaObjectType nodeType = createOrGetObjectTypeNode(typeName, ts);
 				
-				System.out.println("Found type: " + nodeType.getBrowseName().getName());
+				UaNode mappedNode = null;
 				
-				UaNode mappedNode = nm.CreateComponentObjectNode(name, nodeType, currentNode);
+				//map object node
+				if(sourceNode.getNodeClass() == NodeClass.Object)
+					mappedNode = nm.CreateComponentObjectNode(name, nodeType, currentNode);
 				
-				//TODO: get ObjectTypeNode from rNode instead of using FolderTypeNode!!
+				//map variable node
+				if(sourceNode.getNodeClass() == NodeClass.Variable)
+					mappedNode = nm.CreateComponentVariableNode(name, nodeType, currentNode);
+				
 				//TODO: add attributes and other additional values from rNode
-		        //FolderTypeNode mappedNode = nm.createInstance(FolderTypeNode.class, name, newId);
-		        //nm.addNodeAndReference(currentNode, mappedNode, Identifiers.Organizes);
 		        
 		        currentNode = mappedNode;
 			}
-			
+	        System.out.println("*** Node mapped ***");
+	        System.out.println();
 		}
 	}
 	
 	private UaObjectType createOrGetObjectTypeNode(String name, TargetServer ts) throws StatusException {
 		ASNodeManager nm = ts.getNodeManager();
 
-		System.out.println("Creating type node " + name);
-		
 		UaObjectType type = nm.ContainsObjectType(name);
-		
-		System.out.println("Found type? " + type);
 		
 		if(type == null)
 			type = nm.CreateObjectTypeNode(name);
