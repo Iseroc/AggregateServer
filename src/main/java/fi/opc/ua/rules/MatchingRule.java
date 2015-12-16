@@ -1,7 +1,9 @@
 package fi.opc.ua.rules;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.opcfoundation.ua.builtintypes.NodeId;
 
@@ -15,11 +17,13 @@ public class MatchingRule {
 	
 	private Rule rule;
 	public List<LHSRuleNode> LHSNodes;
+	private Map<String, NodeId> LHSNodeReferences;
 	public List<RHSRuleNode> RHSNodes;
 	
 	//**Ctor**
 	MatchingRule() {
 		LHSNodes = new ArrayList<LHSRuleNode>();
+		LHSNodeReferences = new HashMap<String, NodeId>();
 		RHSNodes = new ArrayList<RHSRuleNode>();
 	}
 	
@@ -63,12 +67,17 @@ public class MatchingRule {
 		
 		//connect references from LHS to RHS if they exist
 		for(RHSRuleNode rhsNode : RHSNodes) {
+			rhsNode.MatchingNodeId = LHSNodeReferences.get(rhsNode.Reference);
+			
+			//TODO: find attribute references
+			/*
 			for(LHSRuleNode lhsNode : LHSNodes) {
 				if(rhsNode.Reference.equals(lhsNode.Reference)) {
 					rhsNode.MatchingNodeId = lhsNode.MatchingNodeId;
 					break;
 				}
 			}
+			*/
 		}
 	}
 	
@@ -77,8 +86,12 @@ public class MatchingRule {
 		if(index >= LHSNodes.size())
 			return true;
 
-		//does the given node match the node at LHSNodes size-index
+		//does the given node match the node at LHSNodes size-index?
 		if(this.LHSNodes.get(LHSNodes.size() - index - 1).MatchWithUaNode(node)) {
+			
+			//node matches, add possible references to reference map
+			if(this.LHSNodes.get(LHSNodes.size() - index - 1).Reference != null)
+				this.LHSNodeReferences.put(this.LHSNodes.get(LHSNodes.size() - index - 1).Reference, node.getNodeId());
 			
 			//get source parent node
 			UaNode sourceParentNode = node.getReference(hasComponentId, true).getSourceNode();

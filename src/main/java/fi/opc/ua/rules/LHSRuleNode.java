@@ -30,7 +30,7 @@ public class LHSRuleNode extends RuleNode {
 		
 		//TODO: match attributes
 		
-		//matches!
+		//matches, save matching node id
 		this.MatchingNodeId = node.getNodeId();
 		
 		return true;
