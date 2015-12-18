@@ -21,10 +21,10 @@ public class RuleManager {
 		RuleSet rs = new RuleSet("BoilerServer");
 		//Rule r = new Rule("[BoilerType]#1/[ControllerType]","#1/","Deep copy");
 		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3","#1/#2/#3","Copy");
-		//Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3,"#1/#3{DisplayName=#2@DisplayName}","Copy");
+		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3","#1/#3(DisplayName=#2@DisplayName)","Copy");
 		//rs.AddRule(r);
 		rs.AddRule(r2);
-		//rs.AddRule(r3);
+		rs.AddRule(r3);
 		ruleSets.add(rs);
 	}
 	

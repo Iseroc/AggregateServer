@@ -1,8 +1,5 @@
 package fi.opc.ua.rules;
 
-import java.util.Map;
-
-import org.opcfoundation.ua.builtintypes.NodeId;
 import org.opcfoundation.ua.core.Identifiers;
 
 import com.prosysopc.ua.nodes.UaNode;

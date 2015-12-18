@@ -62,6 +62,7 @@ import com.prosysopc.ua.types.opcua.server.FolderTypeNode;
 import com.prosysopc.ua.client.AddressSpace;
 import com.prosysopc.ua.client.AddressSpaceException;
 
+import fi.opc.ua.rules.MatchingRule;
 import fi.opc.ua.server.DUaNode;
 
 
@@ -325,6 +326,14 @@ public class ASNodeManager extends NodeManagerUaNode {
 
 		// A sample method node
 		createMethodNode();
+	}
+	
+	public UaNode CreateNode(MatchingRule mRule, String name, NodeClass nodeClass, UaType uaType, UaNode parent) {
+		UaNode node = null;
+		
+		
+		
+		return node;
 	}
 	
 	public UaNode CreateComponentObjectNode(String name, UaType type, UaNode parent) {

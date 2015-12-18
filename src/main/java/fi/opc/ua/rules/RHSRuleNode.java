@@ -8,7 +8,6 @@ import com.prosysopc.ua.client.AddressSpaceException;
 import com.prosysopc.ua.nodes.UaNode;
 import com.prosysopc.ua.nodes.UaReference;
 
-import fi.opc.ua.server.ASNodeManager;
 import fi.opc.ua.server.TargetServer;
 
 public class RHSRuleNode extends RuleNode {
