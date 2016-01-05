@@ -19,17 +19,20 @@ public class RHSRuleNode extends RuleNode {
 		this.parseRAW();
 	}
 	
-
 	public boolean MatchWithUaNode(UaNode node, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
-		String name = this.Name;
+		String browseName = this.Name;
+		String displayName = null;
 		String type = this.Type;
 		//TODO: attribute comparison too
 		
 		if(this.MatchingNodeId != null) {
 			UaNode matchingNode = ts.getTargetServerAddressSpace().getNode(this.MatchingNodeId);
 			
-			if(name == null)
-				name = matchingNode.getBrowseName().getName();
+			if(browseName == null)
+				browseName = matchingNode.getBrowseName().getName();
+
+			if(displayName == null)
+				displayName = matchingNode.getDisplayName().getText();
 			
 			if(type == null) {
 				UaReference typeRef = matchingNode.getReference(Identifiers.HasTypeDefinition, false);
@@ -39,8 +42,12 @@ public class RHSRuleNode extends RuleNode {
 				}
 			}
 		}
+
+		if(!browseName.equals(node.getBrowseName().getName())) {
+			return false;
+		}
 		
-		if(!name.equals(node.getBrowseName().getName())) {
+		if(displayName!=null && !displayName.equals(node.getDisplayName().getText())) {
 			return false;
 		}
 		

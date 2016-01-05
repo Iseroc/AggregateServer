@@ -203,7 +203,8 @@ public class MappingEngine {
 		
 		//map variable node
 		if(sourceNode.getNodeClass() == NodeClass.Variable) {
-			mappedNode = nm.CreateComponentVariableNode(name, nodeType, parentNode);
+			UaVariable varNode = (UaVariable)sourceNode;
+			mappedNode = nm.CreateComponentVariableNode(name, nodeType, varNode.getDataTypeId(), varNode.getValue(), parentNode);
 			nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
 		}
 		

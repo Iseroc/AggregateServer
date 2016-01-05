@@ -337,12 +337,17 @@ public class ASNodeManager extends NodeManagerUaNode {
 		return node;
 	}
 	
-	public UaNode CreateComponentVariableNode(String name, UaType type, UaNode parent) {
+	public UaNode CreateComponentVariableNode(String name, UaType type, NodeId dataTypeId, DataValue value, UaNode parent) throws StatusException {
 
 		final NodeId nodeId = new NodeId(getNamespaceIndex(), name + UUID.randomUUID());
-		UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.PropertyType);
-		parent.addComponent(node);
-
+		//UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.PropertyType);
+		UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.BaseDataVariableType);
+		
+		UaVariable varNode = (UaVariable)node;
+		varNode.setDataTypeId(dataTypeId);
+		varNode.setValue(value);
+		
+		parent.addComponent(varNode);
 		return node;
 	}
 	
