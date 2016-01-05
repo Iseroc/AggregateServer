@@ -74,6 +74,14 @@ public class MappingEngine {
 		
 		if(myObjectsNodeId != null)
 			browseAndMapNode(myObjectsNodeId, sourceAddressSpace, idList, ts);
+		
+		//Update IdMap for IOListener
+		ts.getNodeManager().getCustomIOListener().updateIdMap(ts);
+		//((ASNodeManagerListener) myNodeManagerListener).updateIdMap(ts);
+		ts.client.updateIdMap(ts);
+		
+		System.out.println("Done mapping address space: " + ts.nm.getNamespaceUri());
+		System.out.println();
 	}
 	
 	//recursively browse and map node and all it's children
@@ -186,8 +194,9 @@ public class MappingEngine {
 	private UaNode copyNode(RHSRuleNode rNode, UaNode sourceNode, UaNode parentNode, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
 		UaNode mappedNode = null;
 		ASNodeManager nm = ts.getNodeManager();
-		
-		String name = rNode.Name != null ? rNode.Name : sourceNode.getBrowseName().getName();
+
+		String browseName = rNode.Name != null ? rNode.Name : sourceNode.getBrowseName().getName();
+		String displayName = rNode.Name != null ? rNode.Name : sourceNode.getDisplayName().getText();
 		
 		//get or create the node type
 		UaReference typeReference = sourceNode.getReference(hasTypeDefId, false);
@@ -196,7 +205,7 @@ public class MappingEngine {
 
 		//map object node
 		if(sourceNode.getNodeClass() == NodeClass.Object) {
-			mappedNode = nm.CreateComponentObjectNode(name, nodeType, parentNode);
+			mappedNode = nm.CreateComponentObjectNode(browseName, displayName, nodeType, parentNode);
 			nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
 			//sourceNode.getAttributes().clone();
 		}
@@ -204,11 +213,15 @@ public class MappingEngine {
 		//map variable node
 		if(sourceNode.getNodeClass() == NodeClass.Variable) {
 			UaVariable varNode = (UaVariable)sourceNode;
-			mappedNode = nm.CreateComponentVariableNode(name, nodeType, varNode.getDataTypeId(), varNode.getValue(), parentNode);
+			mappedNode = nm.CreateComponentVariableNode(browseName, displayName, nodeType, varNode.getDataTypeId(), varNode.getValue(), parentNode);
 			nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
 		}
 		
-		//TODO: add rest of the attributes and other additional values from rNode
+		//copy attribute table
+		NodeAttributes nodeAttrs = sourceNode.getAttributes().clone();
+		mappedNode.setAttributes(nodeAttrs);
+		
+		//add rest of the attributes and other additional values from rNode
 		for(RuleAttribute rAttr : rNode.Attributes) {
 			//figure out the attribute value
 			Object value = rAttr.Value;

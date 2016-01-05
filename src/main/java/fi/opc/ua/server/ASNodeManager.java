@@ -328,26 +328,28 @@ public class ASNodeManager extends NodeManagerUaNode {
 		createMethodNode();
 	}
 	
-	public UaNode CreateComponentObjectNode(String name, UaType type, UaNode parent) {
+	public UaNode CreateComponentObjectNode(String name, String displayName, UaType type, UaNode parent) {
 		final NodeId nodeId = new NodeId(getNamespaceIndex(), name + UUID.randomUUID());
 		UaObjectNode node = new UaObjectNode(this, nodeId, name, Locale.ENGLISH);
 		node.setTypeDefinition(type);
+		node.setDisplayName(new LocalizedText(displayName, Locale.ENGLISH));
+		
 		parent.addReference(node, Identifiers.HasComponent, false);
 
 		return node;
 	}
 	
-	public UaNode CreateComponentVariableNode(String name, UaType type, NodeId dataTypeId, DataValue value, UaNode parent) throws StatusException {
-
-		final NodeId nodeId = new NodeId(getNamespaceIndex(), name + UUID.randomUUID());
+	public UaNode CreateComponentVariableNode(String browseName, String displayName, UaType type, NodeId dataTypeId, DataValue value, UaNode parent) throws StatusException {
+		final NodeId nodeId = new NodeId(getNamespaceIndex(), displayName + UUID.randomUUID());
 		//UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.PropertyType);
-		UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.BaseDataVariableType);
+		//UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.BaseDataVariableType);
+		UaVariable node = new CacheVariable(this, nodeId, new QualifiedName(getNamespaceIndex(), browseName), new LocalizedText(displayName, Locale.ENGLISH));
 		
-		UaVariable varNode = (UaVariable)node;
-		varNode.setDataTypeId(dataTypeId);
-		varNode.setValue(value);
+		node.setDataTypeId(dataTypeId);
+		node.setValue(value);
 		
-		parent.addComponent(varNode);
+		parent.addComponent(node);
+		
 		return node;
 	}
 	
