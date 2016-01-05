@@ -17,8 +17,9 @@ public class MatchingRule {
 	
 	private Rule rule;
 	public List<LHSRuleNode> LHSNodes;
-	private Map<String, NodeId> LHSNodeReferences;
 	public List<RHSRuleNode> RHSNodes;
+	public Map<String, NodeId> LHSNodeReferences;
+	public Rule OriginalRule;
 	
 	//**Ctor**
 	MatchingRule() {
@@ -30,7 +31,10 @@ public class MatchingRule {
 	//**Public methods**
 	public static MatchingRule MatchRule(Rule rule, NodeId nodeId, AddressSpace as) throws ServiceException, AddressSpaceException {
 		MatchingRule mRule = new MatchingRule();
+		mRule.OriginalRule = rule;
 		mRule.parseRuleLHS(rule);
+		
+		//System.out.println("Matching with: " + rule.LHS + "=" + rule.RHS);
 		
 		UaNode sourceNode = as.getNode(nodeId);
 		if(mRule.matchWithNode(sourceNode, 0)) {
@@ -39,8 +43,8 @@ public class MatchingRule {
 		}
 		else {
 			//Did not match, clearing matchingNodeIds
-			for(LHSRuleNode rNode : mRule.LHSNodes) {
-				rNode.ClearMatchingNodeId();
+			for(LHSRuleNode lNode : mRule.LHSNodes) {
+				lNode.ClearMatchingNodeId();
 			}
 		}
 		
@@ -70,14 +74,9 @@ public class MatchingRule {
 			rhsNode.MatchingNodeId = LHSNodeReferences.get(rhsNode.Reference);
 			
 			//TODO: find attribute references
-			/*
-			for(LHSRuleNode lhsNode : LHSNodes) {
-				if(rhsNode.Reference.equals(lhsNode.Reference)) {
-					rhsNode.MatchingNodeId = lhsNode.MatchingNodeId;
-					break;
-				}
+			for(RuleAttribute rAttr : rhsNode.Attributes) {
+				rAttr.MatchingNodeId = LHSNodeReferences.get(rAttr.Reference);
 			}
-			*/
 		}
 	}
 	

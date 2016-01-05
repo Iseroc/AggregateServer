@@ -328,16 +328,7 @@ public class ASNodeManager extends NodeManagerUaNode {
 		createMethodNode();
 	}
 	
-	public UaNode CreateNode(MatchingRule mRule, String name, NodeClass nodeClass, UaType uaType, UaNode parent) {
-		UaNode node = null;
-		
-		
-		
-		return node;
-	}
-	
 	public UaNode CreateComponentObjectNode(String name, UaType type, UaNode parent) {
-
 		final NodeId nodeId = new NodeId(getNamespaceIndex(), name + UUID.randomUUID());
 		UaObjectNode node = new UaObjectNode(this, nodeId, name, Locale.ENGLISH);
 		node.setTypeDefinition(type);

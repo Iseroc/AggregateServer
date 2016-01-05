@@ -13,6 +13,7 @@ import org.opcfoundation.ua.builtintypes.QualifiedName;
 import org.opcfoundation.ua.common.ServiceResultException;
 import org.opcfoundation.ua.core.BrowseDirection;
 import org.opcfoundation.ua.core.Identifiers;
+import org.opcfoundation.ua.core.NodeAttributes;
 import org.opcfoundation.ua.core.NodeClass;
 import org.opcfoundation.ua.core.ReferenceDescription;
 
@@ -34,6 +35,7 @@ import com.prosysopc.ua.types.opcua.server.FolderTypeNode;
 import fi.opc.ua.client.AggregateServerConsoleClient;
 import fi.opc.ua.rules.MatchingRule;
 import fi.opc.ua.rules.RHSRuleNode;
+import fi.opc.ua.rules.RuleAttribute;
 import fi.opc.ua.rules.RuleManager;
 import fi.opc.ua.rules.LHSRuleNode;
 
@@ -104,12 +106,12 @@ public class MappingEngine {
 		List<MatchingRule> matchingRules = ruleManager.MatchRules(nodeId, sourceAddressSpace);
 		System.out.println("Number of matching rules: " + matchingRules.size());
 		for(MatchingRule mRule : matchingRules) {
-			createOrGetNode(mRule, ts);
+			executeRule(mRule, ts);
 		}
 		
 	}
 	
-	private void createOrGetNode(MatchingRule mRule, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
+	private void executeRule(MatchingRule mRule, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
 		FolderType entryNode = ts.getNodeManager().getServer().getNodeManagerRoot().getObjectsFolder();
 		
 		UaNode currentNode = entryNode;
@@ -119,16 +121,7 @@ public class MappingEngine {
 			System.out.println("*** Mapping RHSNode [" + rNode.Type + "]" + rNode.Name + "#" + rNode.Reference + " ***");
 			
 			//get all component children of current node, check if any one of them matches the rNode
-			UaNode refNode, matchingNode = null;
-			UaReference[] references = currentNode.getReferences();
-			for(UaReference ref : references) {
-				refNode = ref.getOppositeNode(currentNode);
-				if(rNode.MatchWithUaNode(refNode, ts)) {
-					System.out.println("Found matching node: " + refNode.getBrowseName().getName());
-					matchingNode = refNode;
-					break;
-				}
-			}
+			UaNode matchingNode = findChildNode(rNode, currentNode, ts);
 			
 			if(matchingNode != null) {
 				currentNode = matchingNode;
@@ -136,38 +129,115 @@ public class MappingEngine {
 			else {
 				System.out.println("Creating a new object node with a reference: " + rNode.MatchingNodeId);
 				//create a node to match rNode
-				ASNodeManager nm = ts.getNodeManager();
-				
 				UaNode sourceNode = ts.getTargetServerAddressSpace().getNode(rNode.MatchingNodeId);
 				
-				String name = rNode.Name != null ? rNode.Name : sourceNode.getBrowseName().getName();
+				UaNode mappedNode = copyNode(rNode, sourceNode, currentNode, ts);
 				
-				UaReference typeReference = sourceNode.getReference(hasTypeDefId, false);
-				
-				System.out.println("Got name " + name + " and type " + typeReference);
-				
-				String typeName = rNode.Type != null ? rNode.Type : typeReference != null ? typeReference.getTargetNode().getBrowseName().getName() : null;
-				
-				//get or create the node type
-				UaObjectType nodeType = createOrGetObjectTypeNode(typeName, ts);
-				
-				UaNode mappedNode = null;
-				
-				//map object node
-				if(sourceNode.getNodeClass() == NodeClass.Object)
-					mappedNode = nm.CreateComponentObjectNode(name, nodeType, currentNode);
-				
-				//map variable node
-				if(sourceNode.getNodeClass() == NodeClass.Variable)
-					mappedNode = nm.CreateComponentVariableNode(name, nodeType, currentNode);
-				
-				//TODO: add attributes and other additional values from rNode
-		        
 		        currentNode = mappedNode;
 			}
 	        System.out.println("*** Node mapped ***");
 	        System.out.println();
 		}
+		
+		//If the rule is a "deep copy", create all children nodes of the last rule node
+		if(mRule.OriginalRule.Type.toLowerCase().equals("deep copy")) {
+			System.out.println("*** Mapping children nodes for Deep Copy ***");
+			
+			LHSRuleNode lastRuleNode = mRule.LHSNodes.get(mRule.LHSNodes.size() - 1);
+			UaNode sourceNode = ts.getTargetServerAddressSpace().getNode(lastRuleNode.MatchingNodeId);
+			
+			deepCopyNodes(sourceNode, currentNode, ts);
+			
+			System.out.println("*** Mapping children nodes done ***");
+	        System.out.println();
+		}
+	}
+	
+	//recursive method for deep copying from 'sourceNode' to 'parent'
+	private UaNode deepCopyNodes(UaNode sourceNode, UaNode parentNode, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
+		UaNode mappedNode = null;
+		
+		UaNode[] components = sourceNode.getComponents();
+		
+		for(UaNode component : components) {
+			mappedNode = copyNode(new RHSRuleNode(""), component, parentNode, ts);
+			deepCopyNodes(component, mappedNode, ts);
+		}
+		
+		return mappedNode;
+	}
+	
+	private UaNode findChildNode(RHSRuleNode rNode, UaNode parentNode, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
+		UaNode refNode, matchingNode = null;
+		UaReference[] references = parentNode.getReferences();
+		
+		for(UaReference ref : references) {
+			refNode = ref.getOppositeNode(parentNode);
+			if(rNode.MatchWithUaNode(refNode, ts)) {
+				System.out.println("Found matching node: " + refNode.getBrowseName().getName());
+				matchingNode = refNode;
+				break;
+			}
+		}
+		
+		return matchingNode;
+	}
+	
+	private UaNode copyNode(RHSRuleNode rNode, UaNode sourceNode, UaNode parentNode, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
+		UaNode mappedNode = null;
+		ASNodeManager nm = ts.getNodeManager();
+		
+		String name = rNode.Name != null ? rNode.Name : sourceNode.getBrowseName().getName();
+		
+		//get or create the node type
+		UaReference typeReference = sourceNode.getReference(hasTypeDefId, false);
+		String typeName = rNode.Type != null ? rNode.Type : typeReference != null ? typeReference.getTargetNode().getBrowseName().getName() : null;
+		UaObjectType nodeType = createOrGetObjectTypeNode(typeName, ts);
+
+		//map object node
+		if(sourceNode.getNodeClass() == NodeClass.Object) {
+			mappedNode = nm.CreateComponentObjectNode(name, nodeType, parentNode);
+			nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
+			//sourceNode.getAttributes().clone();
+		}
+		
+		//map variable node
+		if(sourceNode.getNodeClass() == NodeClass.Variable) {
+			mappedNode = nm.CreateComponentVariableNode(name, nodeType, parentNode);
+			nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
+		}
+		
+		//TODO: add rest of the attributes and other additional values from rNode
+		for(RuleAttribute rAttr : rNode.Attributes) {
+			//figure out the attribute value
+			Object value = rAttr.Value;
+			if(rAttr.Reference != null) {
+				UaNode attributeSourceNode = ts.getTargetServerAddressSpace().getNode(rAttr.MatchingNodeId);
+				switch(rAttr.ReferenceAttributeName) {
+					case("DisplayName"):
+						value = attributeSourceNode.getDisplayName().getText();
+						break;
+					case("BrowseName"):
+						value = attributeSourceNode.getBrowseName().getName();
+						break;
+					default:
+						break;
+				}
+			}
+			
+			switch(rAttr.AttributeName) {
+				case("DisplayName"):
+					mappedNode.setDisplayName(new LocalizedText((String)value, Locale.ENGLISH));
+					break;
+				case("BrowseName"):
+					mappedNode.setBrowseName(new QualifiedName((String)value));
+					break;
+				default:
+					break;
+			}
+		}
+        
+		return mappedNode;
 	}
 	
 	private UaObjectType createOrGetObjectTypeNode(String name, TargetServer ts) throws StatusException {

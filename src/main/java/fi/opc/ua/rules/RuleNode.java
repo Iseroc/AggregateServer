@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.drools.core.util.StringUtils;
 import org.opcfoundation.ua.builtintypes.NodeId;
 
 public class RuleNode {
@@ -23,11 +24,12 @@ public class RuleNode {
 		
 		//parse name - Name
 		int nameStartIndex = raw.indexOf("]") + 1;
-		int nameEndIndex = raw.indexOf("(");
-		if(nameEndIndex == -1)
+		int nameEndIndex = raw.length();
+		
+		if(raw.contains("#"))
 			nameEndIndex = raw.indexOf("#");
-		if(nameEndIndex == -1)
-			nameEndIndex = raw.length();
+		if(raw.contains("(") & nameEndIndex > raw.indexOf("("))
+			nameEndIndex = raw.indexOf("(");
 		
 		if(nameStartIndex != nameEndIndex)
 			this.Name = raw.substring(nameStartIndex, nameEndIndex);
@@ -40,12 +42,14 @@ public class RuleNode {
 		//TODO: parse attributes - DisplayName = #2@DisplayName
 		String[] attrs = attrRaw.split(",");
 		for(String attr : attrs) {
-			this.Attributes.add(new RuleAttribute(attr));
+			if(attr != null && !attr.isEmpty())
+				this.Attributes.add(new RuleAttribute(attr));
 		}
 		
 		//parse reference #Reference
 		if(raw.contains("#")) {
-			this.Reference = raw.substring(raw.indexOf("#") + 1, raw.length());
+			int refEndIndex = raw.contains("(") ? raw.indexOf("(") : raw.length();
+			this.Reference = raw.substring(raw.indexOf("#") + 1, refEndIndex);
 		}
 	}
 }
