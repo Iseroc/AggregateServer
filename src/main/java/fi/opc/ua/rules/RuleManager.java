@@ -19,12 +19,22 @@ public class RuleManager {
 	
 	public void ReadRuleFile(String filename) {
 		RuleSet rs = new RuleSet("BoilerServer");
-		Rule r = new Rule("[BoilerType]#1/[ControllerType]#2","#1/#2","Deep copy");
-		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3","#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)","Copy");
-		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3","#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)","Copy");
+		
+		//Boiler rules
+//		Rule r = new Rule("[BoilerType]#1/[ControllerType]#2", "#1/#2", "Deep copy");
+//		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
+//		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
+
+		
+		//Transformed Boiler rules
+		Rule r = new Rule("[BoilerType]#1/[ControllerType]#2", "#1/#2", "Deep copy");
+		Rule r2 = new Rule("[BoilerType]#1/FT1001#2", "#1/[PipeType]Pipe1001/[FTType]FT1001/#2(BrowseName=DataItem,DisplayName=DataItem)", "Copy");
+//		Rule r3 = new Rule("[BoilerType]#1/LI1001#2", "#1/[DrumType]Drum1001/[LIType]LI1001/#2(BrowseName=DataItem,DisplayName=DataItem)", "Copy");
+//		Rule r4 = new Rule("[BoilerType]#1/LI1001#2", "#1/[PipeType]Pipe1002/[FTType]FT1002/#2(BrowseName=DataItem,DisplayName=DataItem)", "Copy");
+		
 		rs.AddRule(r);
 		rs.AddRule(r2);
-		rs.AddRule(r3);
+//		rs.AddRule(r3);
 		ruleSets.add(rs);
 	}
 	

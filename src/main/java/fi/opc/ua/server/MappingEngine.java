@@ -195,31 +195,48 @@ public class MappingEngine {
 		UaNode mappedNode = null;
 		ASNodeManager nm = ts.getNodeManager();
 
-		String browseName = rNode.Name != null ? rNode.Name : sourceNode.getBrowseName().getName();
-		String displayName = rNode.Name != null ? rNode.Name : sourceNode.getDisplayName().getText();
+		String browseName = rNode.Name;
+		String displayName = rNode.Name;
+		String typeName = rNode.Type;
 		
-		//get or create the node type
-		UaReference typeReference = sourceNode.getReference(hasTypeDefId, false);
-		String typeName = rNode.Type != null ? rNode.Type : typeReference != null ? typeReference.getTargetNode().getBrowseName().getName() : null;
+		//if this has a source node, fill out the missing information
+		if(sourceNode != null) {
+			if(browseName == null)
+				browseName = sourceNode.getBrowseName().getName();
+			
+			if(displayName == null)
+				displayName = sourceNode.getDisplayName().getText();
+			
+			//get or create the node type
+			UaReference typeReference = sourceNode.getReference(hasTypeDefId, false);
+			if(typeName == null && typeReference != null)
+				typeName = typeReference.getTargetNode().getBrowseName().getName();
+		}
+		
 		UaObjectType nodeType = createOrGetObjectTypeNode(typeName, ts);
 
-		//map object node
-		if(sourceNode.getNodeClass() == NodeClass.Object) {
+		//if this has a source node, create a copy of the source node
+		if(sourceNode != null) {
+			//map object node
+			if(sourceNode.getNodeClass() == NodeClass.Object) {
+				mappedNode = nm.CreateComponentObjectNode(browseName, displayName, nodeType, parentNode);
+				nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
+			}
+			
+			//map variable node
+			if(sourceNode.getNodeClass() == NodeClass.Variable) {
+				UaVariable varNode = (UaVariable)sourceNode;
+				mappedNode = nm.CreateComponentVariableNode(browseName, displayName, nodeType, varNode.getDataTypeId(), varNode.getValue(), parentNode);
+				nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
+			}
+
+			//copy attribute table
+			NodeAttributes nodeAttrs = sourceNode.getAttributes().clone();
+			mappedNode.setAttributes(nodeAttrs);
+		}
+		else { //create a completely new node - always an object node
 			mappedNode = nm.CreateComponentObjectNode(browseName, displayName, nodeType, parentNode);
-			nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
-			//sourceNode.getAttributes().clone();
 		}
-		
-		//map variable node
-		if(sourceNode.getNodeClass() == NodeClass.Variable) {
-			UaVariable varNode = (UaVariable)sourceNode;
-			mappedNode = nm.CreateComponentVariableNode(browseName, displayName, nodeType, varNode.getDataTypeId(), varNode.getValue(), parentNode);
-			nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
-		}
-		
-		//copy attribute table
-		NodeAttributes nodeAttrs = sourceNode.getAttributes().clone();
-		mappedNode.setAttributes(nodeAttrs);
 		
 		//add rest of the attributes and other additional values from rNode
 		for(RuleAttribute rAttr : rNode.Attributes) {
@@ -244,7 +261,7 @@ public class MappingEngine {
 					mappedNode.setDisplayName(new LocalizedText((String)value, Locale.ENGLISH));
 					break;
 				case("BrowseName"):
-					mappedNode.setBrowseName(new QualifiedName((String)value));
+					mappedNode.setBrowseName(new QualifiedName(nm.getNamespaceIndex(), (String)value));
 					break;
 				default:
 					break;
