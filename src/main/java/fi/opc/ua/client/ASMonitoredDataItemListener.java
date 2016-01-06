@@ -41,16 +41,14 @@ public class ASMonitoredDataItemListener implements MonitoredDataItemListener {
 	 * Whenever a subscribed value is changed, this function writes the value to the corresponding aggregated node.
 	 */
 	@Override
-	public void onDataChange(MonitoredDataItem sender, DataValue prevValue,
-			DataValue value) {
-		AggregateServerConsoleClient.println(client.dataValueToString(
-				sender.getNodeId(), sender.getAttributeId(), value));
+	public void onDataChange(MonitoredDataItem sender, DataValue prevValue, DataValue value) {
+		AggregateServerConsoleClient.println(client.dataValueToString(sender.getNodeId(), sender.getAttributeId(), value));
 		NodeId aggregatingId = IdMap.get(sender.getNodeId());
 		if (aggregatingId != null) {
 			try {
 				if (sender.getAttributeId() != null && value != null) {
 					synchronized (this) {
-					internalClient.client.writeAttribute(aggregatingId, sender.getAttributeId(), value);
+						internalClient.client.writeAttribute(aggregatingId, sender.getAttributeId(), value);
 					}
 				}
 			} catch (ServiceException | StatusException e) {

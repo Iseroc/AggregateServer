@@ -4,7 +4,8 @@
 	<!--node subscriptionType="Reporting">Seed drill body.Total distance measurement, Length</node-->
 	<!--node subscriptionType="Reporting">Seed drill body.Total time measurement, Time count</node-->
 	<!--node subscriptionType="Reporting">Seed drill body.Working state, </node-->
-	<node subscriptionType="Reporting">J1939Tractor.EngFuelRate, L/h</node>
-	<node subscriptionType="Reporting">J1939Tractor.CropAmount, kg</node>
-	<node subscriptionType="Reporting">J1939Tractor.CropMoisture, %</node>
+	<!--<node subscriptionType="Reporting">J1939Tractor.EngFuelRate, L/h</node>-->
+	<!--<node subscriptionType="Reporting">J1939Tractor.CropAmount, kg</node>-->
+	<!--<node subscriptionType="Reporting">J1939Tractor.CropMoisture, %</node>-->
+	<node subscriptionType="Reporting">FT1001</node>
 </nodes>

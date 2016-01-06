@@ -112,11 +112,15 @@ public class MappingEngine {
 	
 	private void mapNode(NodeId nodeId, AddressSpace sourceAddressSpace, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
 		List<MatchingRule> matchingRules = ruleManager.MatchRules(nodeId, sourceAddressSpace);
-		System.out.println("Number of matching rules: " + matchingRules.size());
+		
+		if(matchingRules.size() > 0) {
+			System.out.println("Number of matching rules: " + matchingRules.size());
+			System.out.println();
+		}
+		
 		for(MatchingRule mRule : matchingRules) {
 			executeRule(mRule, ts);
 		}
-		
 	}
 	
 	private void executeRule(MatchingRule mRule, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {

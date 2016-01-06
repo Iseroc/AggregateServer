@@ -583,6 +583,10 @@ public class IoTTicketClient {
 			String name = pathParts[pathParts.length - 1].split(",")[0].replace(" ", "");
 			String path = builder.toString().replace(" ", "");
 			
+			if(path == null || path.isEmpty()) {
+				path = "/Boiler";
+			}
+			
 		    DatanodeWriteValue dnwrite = new DatanodeWriteValue();
 		    dnwrite.setName(name);
 		    dnwrite.setPath(path);
@@ -644,7 +648,8 @@ public class IoTTicketClient {
 		
 		iotClient = new IOTAPIClient(IOT_ADDRESS, IOT_USERNAME, IOT_PASSWORD);
 		
-		deviceId = registerDevice("Seed Drill Machine", "PROJECT", "Agricultural apparatus", "", new String[] {}, new String[] {});
+		//deviceId = registerDevice("Seed Drill Machine", "PROJECT", "Agricultural apparatus", "", new String[] {}, new String[] {});
+		deviceId = registerDevice("Boiler", "PROJECT", "Agricultural apparatus", "", new String[] {}, new String[] {});
 		System.out.println("Active device id: " + deviceId);
 		
 		try {

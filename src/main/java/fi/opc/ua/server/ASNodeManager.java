@@ -47,6 +47,7 @@ import com.prosysopc.ua.server.NodeManagerListener;
 import com.prosysopc.ua.server.NodeManagerUaNode;
 import com.prosysopc.ua.server.UaInstantiationException;
 import com.prosysopc.ua.server.UaServer;
+import com.prosysopc.ua.server.nodes.BaseNode;
 import com.prosysopc.ua.server.nodes.CacheVariable;
 import com.prosysopc.ua.server.nodes.PlainMethod;
 import com.prosysopc.ua.server.nodes.PlainProperty;
@@ -347,6 +348,7 @@ public class ASNodeManager extends NodeManagerUaNode {
 		
 		node.setDataTypeId(dataTypeId);
 		node.setValue(value);
+		((BaseNode)node).initNodeVersion();
 		
 		parent.addComponent(node);
 		
