@@ -817,15 +817,11 @@ public class AggregateServerConsoleClient {
 			List<ReferenceDescription> refs = client.getAddressSpace().browse(
 					nodeId, BrowseDirection.Forward, Identifiers.HasChild,
 					true, NodeClass.Variable);
-			List<MonitoredItem> items = new ArrayList<MonitoredItem>(
-					refs.size());
-			println("Subscribing to " + refs.size() + " items under node "
-					+ parentNodeId);
+			List<MonitoredItem> items = new ArrayList<MonitoredItem>(refs.size());
+			println("Subscribing to " + refs.size() + " items under node " + parentNodeId);
 			for (ReferenceDescription r : refs)
 				try {
-					items.add(createMonitoredDataItem(client
-							.getNamespaceTable().toNodeId(r.getNodeId()),
-							Attributes.Value));
+					items.add(createMonitoredDataItem(client.getNamespaceTable().toNodeId(r.getNodeId()), Attributes.Value));
 				} catch (ServiceResultException e) {
 					printException(e);
 				}
@@ -2003,7 +1999,7 @@ public class AggregateServerConsoleClient {
 	/**
 	 * Subscribe to items specified from command line
 	 */
-	protected void subscribeToInitialItems() {
+	public void subscribeToInitialItems() {
 		if (!initialMonitoredItems.isEmpty())
 			// while (true) {
 			try {
@@ -2016,7 +2012,7 @@ public class AggregateServerConsoleClient {
 				printException(e);
 				return;
 			}
-		for (String s : initialMonitoredItems)
+		for (String s : initialMonitoredItems) {
 			try {
 				if (s.endsWith("/*"))
 					createMonitoredItemsForChildren(subscription, s);
@@ -2030,6 +2026,7 @@ public class AggregateServerConsoleClient {
 			} catch (StatusException e1) {
 				printException(e1);
 			}
+		}
 		try {
 			if (subscription != null)
 				subscriptionMenu();

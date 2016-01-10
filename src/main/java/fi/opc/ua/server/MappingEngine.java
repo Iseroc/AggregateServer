@@ -11,6 +11,7 @@ import org.opcfoundation.ua.builtintypes.LocalizedText;
 import org.opcfoundation.ua.builtintypes.NodeId;
 import org.opcfoundation.ua.builtintypes.QualifiedName;
 import org.opcfoundation.ua.common.ServiceResultException;
+import org.opcfoundation.ua.core.Attributes;
 import org.opcfoundation.ua.core.BrowseDirection;
 import org.opcfoundation.ua.core.Identifiers;
 import org.opcfoundation.ua.core.NodeAttributes;
@@ -145,6 +146,10 @@ public class MappingEngine {
 				
 				UaNode mappedNode = copyNode(rNode, sourceNode, currentNode, ts);
 				
+				if(sourceNode.getNodeClass().equals(NodeClass.Variable)) {
+					ts.client.relaySubscription(sourceNode.getNodeId(), Attributes.Value);
+				}
+				
 		        currentNode = mappedNode;
 			}
 	        System.out.println("*** Node mapped ***");
@@ -222,13 +227,13 @@ public class MappingEngine {
 		//if this has a source node, create a copy of the source node
 		if(sourceNode != null) {
 			//map object node
-			if(sourceNode.getNodeClass() == NodeClass.Object) {
+			if(sourceNode.getNodeClass().equals(NodeClass.Object)) {
 				mappedNode = nm.CreateComponentObjectNode(browseName, displayName, nodeType, parentNode);
 				nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
 			}
 			
 			//map variable node
-			if(sourceNode.getNodeClass() == NodeClass.Variable) {
+			if(sourceNode.getNodeClass().equals(NodeClass.Variable)) {
 				UaVariable varNode = (UaVariable)sourceNode;
 				mappedNode = nm.CreateComponentVariableNode(browseName, displayName, nodeType, varNode.getDataTypeId(), varNode.getValue(), parentNode);
 				nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());

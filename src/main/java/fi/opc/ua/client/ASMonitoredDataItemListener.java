@@ -44,6 +44,7 @@ public class ASMonitoredDataItemListener implements MonitoredDataItemListener {
 	public void onDataChange(MonitoredDataItem sender, DataValue prevValue, DataValue value) {
 		AggregateServerConsoleClient.println(client.dataValueToString(sender.getNodeId(), sender.getAttributeId(), value));
 		NodeId aggregatingId = IdMap.get(sender.getNodeId());
+		System.out.println("Found aggregating id: " + aggregatingId);
 		if (aggregatingId != null) {
 			try {
 				if (sender.getAttributeId() != null && value != null) {
@@ -58,18 +59,21 @@ public class ASMonitoredDataItemListener implements MonitoredDataItemListener {
 		}
 	}
 	
-	public void storeInternalClient (AggregateServerConsoleClient intClient) {
+	public void storeInternalClient(AggregateServerConsoleClient intClient) {
 		internalClient = intClient;
 	}
 	
 	public void updateIdMap(TargetServer ts) {
+		System.out.println("### Updating IDMap ###");
 		int ns = ts.getNodeManager().getNamespaceIndex();
 		if (clientMap.get(ns) == null) {
 			clientMap.put(ns, ts);
+			System.out.println("### Updating IDMap complete ###");
 		}
 	}
 	
 	public void storeMonitoredIdPair(NodeId remoteId, NodeId aggId) {
+		System.out.println("### Stored a monitored ID pair ###");
 		IdMap.put(remoteId, aggId);
 	}
 	

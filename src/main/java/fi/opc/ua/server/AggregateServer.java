@@ -424,6 +424,7 @@ public class AggregateServer {
 				ASNodeManager newNodeManager = createNodeManager(serverArray.getValue().getValue().toString());
 				TargetServer newServer = new TargetServer(newClient, newNodeManager);
 				clientList.add(newServer);
+				newClient.subscribeToInitialItems();
 				writeToOutputStream("Server added successfully");
 				return DONE;
 			} else {
