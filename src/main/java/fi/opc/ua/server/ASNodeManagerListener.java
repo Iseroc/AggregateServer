@@ -248,6 +248,8 @@ public class ASNodeManagerListener implements NodeManagerListener {
 		int ns = node.getNodeId().getNamespaceIndex();
 		TargetServer ts = clientMap.get(ns);
 		
+		System.out.println("### onCreateMonitoredDataItem called for node " + node + " ###");
+		
 		if (ts != null) {
 			NodeId remoteId = ts.getNodeManager().getIdMap().get(node.getNodeId());
 			if (remoteId != null) {

@@ -11,6 +11,7 @@ import org.opcfoundation.ua.builtintypes.LocalizedText;
 import org.opcfoundation.ua.builtintypes.NodeId;
 import org.opcfoundation.ua.builtintypes.QualifiedName;
 import org.opcfoundation.ua.common.ServiceResultException;
+import org.opcfoundation.ua.core.AccessLevel;
 import org.opcfoundation.ua.core.Attributes;
 import org.opcfoundation.ua.core.BrowseDirection;
 import org.opcfoundation.ua.core.Identifiers;
@@ -27,6 +28,7 @@ import com.prosysopc.ua.nodes.UaObjectType;
 import com.prosysopc.ua.nodes.UaReference;
 import com.prosysopc.ua.nodes.UaType;
 import com.prosysopc.ua.nodes.UaVariable;
+import com.prosysopc.ua.server.MonitoredDataItem;
 import com.prosysopc.ua.server.UaServer;
 import com.prosysopc.ua.server.nodes.BaseNode;
 import com.prosysopc.ua.server.nodes.CacheVariable;
@@ -60,6 +62,11 @@ public class MappingEngine {
 	public void MapAddressSpace(TargetServer ts) throws ServiceException, StatusException, ServiceResultException {
 		NodeId root = Identifiers.ObjectsFolder;
 		
+		//Update IdMap for IOListener
+		ts.getNodeManager().getCustomIOListener().updateIdMap(ts);
+		//((ASNodeManagerListener) myNodeManagerListener).updateIdMap(ts);
+		ts.client.updateIdMap(ts);
+				
 		List<NodeId> idList = new ArrayList<NodeId>();
 		
 		AddressSpace sourceAddressSpace = ts.getTargetServerAddressSpace();
@@ -75,11 +82,6 @@ public class MappingEngine {
 		
 		if(myObjectsNodeId != null)
 			browseAndMapNode(myObjectsNodeId, sourceAddressSpace, idList, ts);
-		
-		//Update IdMap for IOListener
-		ts.getNodeManager().getCustomIOListener().updateIdMap(ts);
-		//((ASNodeManagerListener) myNodeManagerListener).updateIdMap(ts);
-		ts.client.updateIdMap(ts);
 		
 		System.out.println("Done mapping address space: " + ts.nm.getNamespaceUri());
 		System.out.println();
@@ -148,6 +150,11 @@ public class MappingEngine {
 				
 				if(sourceNode.getNodeClass().equals(NodeClass.Variable)) {
 					ts.client.relaySubscription(sourceNode.getNodeId(), Attributes.Value);
+					ts.client.storeMonitoredIdPair(sourceNode.getNodeId(), mappedNode.getNodeId());
+					if (mappedNode.supportsAttribute(Attributes.AccessLevel)) {
+						//nodeAccessLevels.put(mappedNode, ((UaVariable)mappedNode).getAccessLevel());
+						((UaVariable)mappedNode).setAccessLevel(AccessLevel.READWRITE);				
+					}
 				}
 				
 		        currentNode = mappedNode;
@@ -237,6 +244,7 @@ public class MappingEngine {
 				UaVariable varNode = (UaVariable)sourceNode;
 				mappedNode = nm.CreateComponentVariableNode(browseName, displayName, nodeType, varNode.getDataTypeId(), varNode.getValue(), parentNode);
 				nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
+				
 			}
 
 			//copy attribute table
