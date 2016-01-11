@@ -1,7 +1,9 @@
 package fi.opc.ua.rules;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.opcfoundation.ua.builtintypes.NodeId;
 
@@ -14,19 +16,25 @@ public class MatchingRule {
 	private NodeId hasComponentId = new NodeId(0,47);
 	
 	private Rule rule;
-	public List<RuleNode> LHSNodes;
-	public List<RuleNode> RHSNodes;
+	public List<LHSRuleNode> LHSNodes;
+	public List<RHSRuleNode> RHSNodes;
+	public Map<String, NodeId> LHSNodeReferences;
+	public Rule OriginalRule;
 	
 	//**Ctor**
 	MatchingRule() {
-		LHSNodes = new ArrayList<RuleNode>();
-		RHSNodes = new ArrayList<RuleNode>();
+		LHSNodes = new ArrayList<LHSRuleNode>();
+		LHSNodeReferences = new HashMap<String, NodeId>();
+		RHSNodes = new ArrayList<RHSRuleNode>();
 	}
 	
 	//**Public methods**
 	public static MatchingRule MatchRule(Rule rule, NodeId nodeId, AddressSpace as) throws ServiceException, AddressSpaceException {
 		MatchingRule mRule = new MatchingRule();
+		mRule.OriginalRule = rule;
 		mRule.parseRuleLHS(rule);
+		
+		//System.out.println("Matching with: " + rule.LHS + "=" + rule.RHS);
 		
 		UaNode sourceNode = as.getNode(nodeId);
 		if(mRule.matchWithNode(sourceNode, 0)) {
@@ -35,8 +43,8 @@ public class MatchingRule {
 		}
 		else {
 			//Did not match, clearing matchingNodeIds
-			for(RuleNode rNode : mRule.LHSNodes) {
-				rNode.ClearMatchingNodeId();
+			for(LHSRuleNode lNode : mRule.LHSNodes) {
+				lNode.ClearMatchingNodeId();
 			}
 		}
 		
@@ -47,28 +55,27 @@ public class MatchingRule {
 		this.rule = rule;
 		String[] nodes = rule.LHS.split("/");
 		
-		LHSNodes = new ArrayList<RuleNode>();
+		LHSNodes = new ArrayList<LHSRuleNode>();
 		for(String s : nodes) {
-			LHSNodes.add(new RuleNode(s));
+			LHSNodes.add(new LHSRuleNode(s));
 		}
 	}
 	
 	private void parseRuleRHS(){
 		String[] nodes = rule.RHS.split("/");
 		
-		RHSNodes = new ArrayList<RuleNode>();
+		RHSNodes = new ArrayList<RHSRuleNode>();
 		for(String s : nodes) {
-			RHSNodes.add(new RuleNode(s));
-			System.out.println("Create RHS from " + s + " to have ref " + RHSNodes.get(RHSNodes.size()-1).Reference);
+			RHSNodes.add(new RHSRuleNode(s));
 		}
 		
 		//connect references from LHS to RHS if they exist
-		for(RuleNode rhsNode : RHSNodes) {
-			for(RuleNode lhsNode : LHSNodes) {
-				if(rhsNode.Reference.equals(lhsNode.Reference)) {
-					rhsNode.matchingNodeId = lhsNode.matchingNodeId;
-					break;
-				}
+		for(RHSRuleNode rhsNode : RHSNodes) {
+			rhsNode.MatchingNodeId = LHSNodeReferences.get(rhsNode.Reference);
+			
+			//TODO: find attribute references
+			for(RuleAttribute rAttr : rhsNode.Attributes) {
+				rAttr.MatchingNodeId = LHSNodeReferences.get(rAttr.Reference);
 			}
 		}
 	}
@@ -77,9 +84,13 @@ public class MatchingRule {
 		//reached the end of LHSNodes rule list
 		if(index >= LHSNodes.size())
 			return true;
-		
-		if(this.LHSNodes.get(LHSNodes.size() - index - 1).MatchesWithUaNode(node)) {
-			//this node matches the node at LHSNodes size-index
+
+		//does the given node match the node at LHSNodes size-index?
+		if(this.LHSNodes.get(LHSNodes.size() - index - 1).MatchWithUaNode(node)) {
+			
+			//node matches, add possible references to reference map
+			if(this.LHSNodes.get(LHSNodes.size() - index - 1).Reference != null)
+				this.LHSNodeReferences.put(this.LHSNodes.get(LHSNodes.size() - index - 1).Reference, node.getNodeId());
 			
 			//get source parent node
 			UaNode sourceParentNode = node.getReference(hasComponentId, true).getSourceNode();

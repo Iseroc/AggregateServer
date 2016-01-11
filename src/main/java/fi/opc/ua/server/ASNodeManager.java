@@ -37,6 +37,7 @@ import com.prosysopc.ua.nodes.UaNode;
 import com.prosysopc.ua.nodes.UaNodeFactoryException;
 import com.prosysopc.ua.nodes.UaObject;
 import com.prosysopc.ua.nodes.UaObjectType;
+import com.prosysopc.ua.nodes.UaReference;
 import com.prosysopc.ua.nodes.UaType;
 import com.prosysopc.ua.nodes.UaVariable;
 import com.prosysopc.ua.server.CallableListener;
@@ -46,6 +47,7 @@ import com.prosysopc.ua.server.NodeManagerListener;
 import com.prosysopc.ua.server.NodeManagerUaNode;
 import com.prosysopc.ua.server.UaInstantiationException;
 import com.prosysopc.ua.server.UaServer;
+import com.prosysopc.ua.server.nodes.BaseNode;
 import com.prosysopc.ua.server.nodes.CacheVariable;
 import com.prosysopc.ua.server.nodes.PlainMethod;
 import com.prosysopc.ua.server.nodes.PlainProperty;
@@ -61,6 +63,7 @@ import com.prosysopc.ua.types.opcua.server.FolderTypeNode;
 import com.prosysopc.ua.client.AddressSpace;
 import com.prosysopc.ua.client.AddressSpaceException;
 
+import fi.opc.ua.rules.MatchingRule;
 import fi.opc.ua.server.DUaNode;
 
 
@@ -198,6 +201,7 @@ public class ASNodeManager extends NodeManagerUaNode {
 
 	}
 
+	
 	/**
 	 * Creates an alarm, if it is not active
 	 *
@@ -233,12 +237,9 @@ public class ASNodeManager extends NodeManagerUaNode {
 		this.getEventManager().setListener(myEventManagerListener);
 
 		// UA types and folders which we will use
-		final UaObject objectsFolder = getServer().getNodeManagerRoot()
-				.getObjectsFolder();
-		final UaType baseObjectType = getServer().getNodeManagerRoot().getType(
-				Identifiers.BaseObjectType);
-		final UaType baseDataVariableType = getServer().getNodeManagerRoot()
-				.getType(Identifiers.BaseDataVariableType);
+		final UaObject objectsFolder = getServer().getNodeManagerRoot().getObjectsFolder();
+		final UaType baseObjectType = getServer().getNodeManagerRoot().getType(Identifiers.BaseObjectType);
+		final UaType baseDataVariableType = getServer().getNodeManagerRoot().getType(Identifiers.BaseDataVariableType);
 
 		// Folder for my objects
 		final NodeId myObjectsFolderId = new NodeId(ns, "MyObjectsFolder");
@@ -327,6 +328,59 @@ public class ASNodeManager extends NodeManagerUaNode {
 		// A sample method node
 		createMethodNode();
 	}
+	
+	public UaNode CreateComponentObjectNode(String name, String displayName, UaType type, UaNode parent) {
+		final NodeId nodeId = new NodeId(getNamespaceIndex(), name + UUID.randomUUID());
+		UaObjectNode node = new UaObjectNode(this, nodeId, name, Locale.ENGLISH);
+		node.setTypeDefinition(type);
+		node.setDisplayName(new LocalizedText(displayName, Locale.ENGLISH));
+		
+		parent.addReference(node, Identifiers.HasComponent, false);
+
+		return node;
+	}
+	
+	public UaNode CreateComponentVariableNode(String browseName, String displayName, UaType type, NodeId dataTypeId, DataValue value, UaNode parent) throws StatusException {
+		final NodeId nodeId = new NodeId(getNamespaceIndex(), displayName + UUID.randomUUID());
+		//UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.PropertyType);
+		//UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.BaseDataVariableType);
+		UaVariable node = new CacheVariable(this, nodeId, new QualifiedName(getNamespaceIndex(), browseName), new LocalizedText(displayName, Locale.ENGLISH));
+		
+		node.setDataTypeId(dataTypeId);
+		node.setValue(value);
+		((BaseNode)node).initNodeVersion();
+		
+		parent.addComponent(node);
+		
+		return node;
+	}
+	
+	public UaObjectType CreateObjectTypeNode(String name) throws StatusException {
+		final UaType baseObjectType = getServer().getNodeManagerRoot().getType(Identifiers.BaseObjectType);
+		
+		final NodeId typeId = new NodeId(getNamespaceIndex(), name + UUID.randomUUID());
+		UaObjectType type = new UaObjectTypeNode(this, typeId, name, Locale.ENGLISH);
+		this.addNodeAndReference(baseObjectType, type, Identifiers.HasSubtype);
+		
+		return type;
+	}
+	
+	public UaObjectType ContainsObjectType(String name) throws StatusException {
+		final UaType baseObjectType = getServer().getNodeManagerRoot().getType(Identifiers.BaseObjectType);
+		
+		UaReference[] subTypes = baseObjectType.getReferences(Identifiers.HasSubtype, false);
+		
+		for(UaReference ref : subTypes) {
+			UaObjectType subType = (UaObjectType)ref.getTargetNode();
+			if(subType != null && subType.getBrowseName().getName().equals(name))
+				return subType;
+		}
+		
+		return null;
+	}
+	
+	
+	
 	
 	public void createSampleAssetNode(String name) {
 		myObjectsFolder.initNodeVersion();
@@ -595,42 +649,6 @@ public class ASNodeManager extends NodeManagerUaNode {
 
 		//createAddressSpace();
 	}
-
-	/**
-	 *
-	 */
-	// protected void initMyEvent() {
-	// if (myEvent == null)
-	// myEvent = new MyEventType(this);
-	// }
-
-	/**
-	 * Send an event
-	 *
-	 * @throws StatusException
-	 */
-	// protected void sendEvent() throws StatusException {
-	// // 1. send a standard SystemEventType here
-	// SystemEventTypeNode newEvent = createEvent(SystemEventTypeNode.class);
-	//
-	// newEvent.setMessage("New event");
-	// // Set the severity of the event between 1 and 1000
-	// newEvent.setSeverity(1);
-	// // By default the event is sent for the "Server" object. If you want to
-	// // send it for some other object, use Source (or SourceNode), e.g.
-	// // newEvent.setSource(myDevice);
-	// triggerEvent(newEvent);
-	//
-	// // 2. Send our own event
-	//
-	// initMyEvent();
-	// myEvent.setSource(myObjectsFolder);
-	//
-	// myEvent.setMyVariable(myEvent.getMyVariable() + 1);
-	// myEvent.setMyProperty(DateTime.currentTime().toString());
-	// triggerEvent(myEvent);
-	// this.deleteNode(myEvent, true, true);
-	// }
 
 	void addNode(String name) {
 		// Initialize NodeVersion property, to enable ModelChangeEvents

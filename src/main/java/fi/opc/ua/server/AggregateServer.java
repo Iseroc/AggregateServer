@@ -58,6 +58,7 @@ import com.prosysopc.ua.UaAddress;
 import com.prosysopc.ua.ValueRanks;
 import com.prosysopc.ua.UaApplication.Protocol;
 import com.prosysopc.ua.client.AddressSpaceException;
+import com.prosysopc.ua.client.MonitoredDataItemListener;
 import com.prosysopc.ua.client.ServerListException;
 import com.prosysopc.ua.nodes.UaNode;
 import com.prosysopc.ua.nodes.UaObject;
@@ -83,6 +84,7 @@ import com.prosysopc.ua.types.opcua.server.BuildInfoTypeNode;
 import com.prosysopc.ua.types.opcua.server.DataItemTypeNode;
 import com.prosysopc.ua.types.opcua.server.FolderTypeNode;
 
+import fi.opc.ua.client.ASMonitoredDataItemListener;
 import fi.opc.ua.client.AggregateServerConsoleClient;
 import fi.opc.ua.iotticket.IoTTicketClient;
 
@@ -301,6 +303,7 @@ public class AggregateServer {
 
 	private static Logger logger = Logger.getLogger(AggregateServer.class);
 	
+	//protected MonitoredDataItemListener dataChangeListener = new ASMonitoredDataItemListener(this);
 	private static AggregateServerConsoleClient internalClient = new AggregateServerConsoleClient();
 	private static NodeManagerListener myNodeManagerListener = new ASNodeManagerListener();
 	private static ASIoManagerListener MyIOListener = new ASIoManagerListener();
@@ -421,6 +424,7 @@ public class AggregateServer {
 				ASNodeManager newNodeManager = createNodeManager(serverArray.getValue().getValue().toString());
 				TargetServer newServer = new TargetServer(newClient, newNodeManager);
 				clientList.add(newServer);
+				newClient.subscribeToInitialItems();
 				writeToOutputStream("Server added successfully");
 				return DONE;
 			} else {
@@ -545,6 +549,13 @@ public class AggregateServer {
         
         System.out.println("Server: AggregateServer started");
 
+        
+        
+        //TODO: TEMPORARY TESTING AUTOMAP
+		insertAndMapServer("opc.tcp://Rickenbacker2:52510/OPCUA/BoilerServer");
+		
+        
+        
         try {
         	serverSocket = new ServerSocket(socket);
         }
@@ -1119,8 +1130,8 @@ public class AggregateServer {
 	}
 	
 	private void writeToOutputStream(String line) {
-		os.println(line);
-		//System.out.println("DEBUG writeOutput: " + line);
+		if(os != null)
+			os.println(line);
 	}
 
 	private static ASNodeManager createNodeManager(String ns) throws UaInstantiationException, StatusException {

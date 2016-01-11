@@ -319,8 +319,7 @@ public class AggregateServerConsoleClient {
 	public UaClient client;
 
 	protected boolean connectToDiscoveryServer = false;
-	protected MonitoredDataItemListener dataChangeListener = new ASMonitoredDataItemListener(
-			this);
+	protected MonitoredDataItemListener dataChangeListener = new ASMonitoredDataItemListener(this);
 	protected String defaultServerUri = "opc.tcp://localhost:52520/OPCUA/SampleConsoleServer";
 	// requested fields for event subscriptions
 	// the last two fields reserved for our custom fields
@@ -329,8 +328,7 @@ public class AggregateServerConsoleClient {
 			new QualifiedName("SourceName"), new QualifiedName("Time"),
 			new QualifiedName("Severity"), new QualifiedName("ActiveState/Id"),
 			null, null };
-	protected final MonitoredEventItemListener eventListener = new ASMonitoredEventItemListener(
-			this, eventFieldNames);
+	protected final MonitoredEventItemListener eventListener = new ASMonitoredEventItemListener(this, eventFieldNames);
 
 	protected final List<String> initialMonitoredItems = new ArrayList<String>();
 
@@ -726,16 +724,13 @@ public class AggregateServerConsoleClient {
 	 * @param attributeId
 	 * @return
 	 */
-	protected MonitoredDataItem createMonitoredDataItem(NodeId nodeId,
-			UnsignedInteger attributeId) {
-		MonitoredDataItem dataItem = new MonitoredDataItem(nodeId, attributeId,
-				MonitoringMode.Reporting);
+	protected MonitoredDataItem createMonitoredDataItem(NodeId nodeId, UnsignedInteger attributeId) {
+		MonitoredDataItem dataItem = new MonitoredDataItem(nodeId, attributeId, MonitoringMode.Reporting);
 		dataItem.setDataChangeListener(dataChangeListener);
 		DataChangeFilter filter = new DataChangeFilter();
 		filter.setDeadbandValue(1.00);
 		filter.setTrigger(DataChangeTrigger.StatusValue);
-		filter.setDeadbandType(UnsignedInteger.valueOf(DeadbandType.Percent
-				.getValue()));
+		filter.setDeadbandType(UnsignedInteger.valueOf(DeadbandType.Percent.getValue()));
 		return dataItem;
 	}
 
@@ -762,9 +757,7 @@ public class AggregateServerConsoleClient {
 	 * @throws ServiceException
 	 * @throws StatusException
 	 */
-	protected void createMonitoredItem(Subscription sub, NodeId nodeId,
-			UnsignedInteger attributeId) throws ServiceException,
-			StatusException {
+	protected void createMonitoredItem(Subscription sub, NodeId nodeId, UnsignedInteger attributeId) throws ServiceException, StatusException {
 		UnsignedInteger monitoredItemId = null;
 		// Create the monitored item, if it is not already in the
 		// subscription
@@ -783,8 +776,7 @@ public class AggregateServerConsoleClient {
 				// .getSubscriptionId()) });
 
 			} else {
-				MonitoredDataItem dataItem = createMonitoredDataItem(nodeId,
-						attributeId);
+				MonitoredDataItem dataItem = createMonitoredDataItem(nodeId, attributeId);
 				// Set the filter if you want to limit data changes
 				DataChangeFilter filter = null;
 				/* Request deadband */
@@ -807,8 +799,7 @@ public class AggregateServerConsoleClient {
 				monitoredItemId = dataItem.getMonitoredItemId();
 			}
 		println("-------------------------------------------------------");
-		println("Subscription: Id=" + sub.getSubscriptionId() + " ItemId="
-				+ monitoredItemId);
+		println("Subscription: Id=" + sub.getSubscriptionId() + " ItemId=" + monitoredItemId);
 	}
 
 	/**
@@ -826,15 +817,11 @@ public class AggregateServerConsoleClient {
 			List<ReferenceDescription> refs = client.getAddressSpace().browse(
 					nodeId, BrowseDirection.Forward, Identifiers.HasChild,
 					true, NodeClass.Variable);
-			List<MonitoredItem> items = new ArrayList<MonitoredItem>(
-					refs.size());
-			println("Subscribing to " + refs.size() + " items under node "
-					+ parentNodeId);
+			List<MonitoredItem> items = new ArrayList<MonitoredItem>(refs.size());
+			println("Subscribing to " + refs.size() + " items under node " + parentNodeId);
 			for (ReferenceDescription r : refs)
 				try {
-					items.add(createMonitoredDataItem(client
-							.getNamespaceTable().toNodeId(r.getNodeId()),
-							Attributes.Value));
+					items.add(createMonitoredDataItem(client.getNamespaceTable().toNodeId(r.getNodeId()), Attributes.Value));
 				} catch (ServiceResultException e) {
 					printException(e);
 				}
@@ -2012,7 +1999,7 @@ public class AggregateServerConsoleClient {
 	/**
 	 * Subscribe to items specified from command line
 	 */
-	protected void subscribeToInitialItems() {
+	public void subscribeToInitialItems() {
 		if (!initialMonitoredItems.isEmpty())
 			// while (true) {
 			try {
@@ -2025,7 +2012,7 @@ public class AggregateServerConsoleClient {
 				printException(e);
 				return;
 			}
-		for (String s : initialMonitoredItems)
+		for (String s : initialMonitoredItems) {
 			try {
 				if (s.endsWith("/*"))
 					createMonitoredItemsForChildren(subscription, s);
@@ -2039,6 +2026,7 @@ public class AggregateServerConsoleClient {
 			} catch (StatusException e1) {
 				printException(e1);
 			}
+		}
 		try {
 			if (subscription != null)
 				subscriptionMenu();

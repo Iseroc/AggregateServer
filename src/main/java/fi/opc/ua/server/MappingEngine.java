@@ -11,8 +11,12 @@ import org.opcfoundation.ua.builtintypes.LocalizedText;
 import org.opcfoundation.ua.builtintypes.NodeId;
 import org.opcfoundation.ua.builtintypes.QualifiedName;
 import org.opcfoundation.ua.common.ServiceResultException;
+import org.opcfoundation.ua.core.AccessLevel;
+import org.opcfoundation.ua.core.Attributes;
 import org.opcfoundation.ua.core.BrowseDirection;
 import org.opcfoundation.ua.core.Identifiers;
+import org.opcfoundation.ua.core.NodeAttributes;
+import org.opcfoundation.ua.core.NodeClass;
 import org.opcfoundation.ua.core.ReferenceDescription;
 
 import com.prosysopc.ua.ServiceException;
@@ -20,9 +24,11 @@ import com.prosysopc.ua.StatusException;
 import com.prosysopc.ua.client.AddressSpace;
 import com.prosysopc.ua.client.AddressSpaceException;
 import com.prosysopc.ua.nodes.UaNode;
+import com.prosysopc.ua.nodes.UaObjectType;
 import com.prosysopc.ua.nodes.UaReference;
 import com.prosysopc.ua.nodes.UaType;
 import com.prosysopc.ua.nodes.UaVariable;
+import com.prosysopc.ua.server.MonitoredDataItem;
 import com.prosysopc.ua.server.UaServer;
 import com.prosysopc.ua.server.nodes.BaseNode;
 import com.prosysopc.ua.server.nodes.CacheVariable;
@@ -31,8 +37,10 @@ import com.prosysopc.ua.types.opcua.server.FolderTypeNode;
 
 import fi.opc.ua.client.AggregateServerConsoleClient;
 import fi.opc.ua.rules.MatchingRule;
+import fi.opc.ua.rules.RHSRuleNode;
+import fi.opc.ua.rules.RuleAttribute;
 import fi.opc.ua.rules.RuleManager;
-import fi.opc.ua.rules.RuleNode;
+import fi.opc.ua.rules.LHSRuleNode;
 
 public class MappingEngine {
 
@@ -54,6 +62,11 @@ public class MappingEngine {
 	public void MapAddressSpace(TargetServer ts) throws ServiceException, StatusException, ServiceResultException {
 		NodeId root = Identifiers.ObjectsFolder;
 		
+		//Update IdMap for IOListener
+		ts.getNodeManager().getCustomIOListener().updateIdMap(ts);
+		//((ASNodeManagerListener) myNodeManagerListener).updateIdMap(ts);
+		ts.client.updateIdMap(ts);
+				
 		List<NodeId> idList = new ArrayList<NodeId>();
 		
 		AddressSpace sourceAddressSpace = ts.getTargetServerAddressSpace();
@@ -67,10 +80,11 @@ public class MappingEngine {
 				myObjectsNodeId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
 		}
 		
-		System.out.println("Found MyObjects folder to map");
-		
 		if(myObjectsNodeId != null)
 			browseAndMapNode(myObjectsNodeId, sourceAddressSpace, idList, ts);
+		
+		System.out.println("Done mapping address space: " + ts.nm.getNamespaceUri());
+		System.out.println();
 	}
 	
 	//recursively browse and map node and all it's children
@@ -92,97 +106,197 @@ public class MappingEngine {
 		}
 		catch (Exception e) {
 			System.out.println("Problem mapping node with NodeId " + nodeId);
+			System.err.println(e.toString());
+			e.printStackTrace();
+			if (e.getCause() != null)
+				System.err.println("Caused by: " + e.getCause());
 		}
 	}
 	
 	private void mapNode(NodeId nodeId, AddressSpace sourceAddressSpace, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
 		List<MatchingRule> matchingRules = ruleManager.MatchRules(nodeId, sourceAddressSpace);
-		System.out.println("Number of matching rules: " + matchingRules.size());
-		for(MatchingRule mRule : matchingRules) {
-			findOrCreateNode(mRule, ts);
+		
+		if(matchingRules.size() > 0) {
+			System.out.println("Number of matching rules: " + matchingRules.size());
+			System.out.println();
 		}
 		
+		for(MatchingRule mRule : matchingRules) {
+			executeRule(mRule, ts);
+		}
 	}
 	
-	private void findOrCreateNode(MatchingRule mRule, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
+	private void executeRule(MatchingRule mRule, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
 		FolderType entryNode = ts.getNodeManager().getServer().getNodeManagerRoot().getObjectsFolder();
 		
 		UaNode currentNode = entryNode;
 		
 		//find or build the tree of nodes from RHSNodes
-		for(RuleNode rNode : mRule.RHSNodes) {
-			System.out.println("Mapping RHSNode [" + rNode.Type + "]" + rNode.Name);
+		for(RHSRuleNode rNode : mRule.RHSNodes) {
+			System.out.println("*** Mapping RHSNode [" + rNode.Type + "]" + rNode.Name + "#" + rNode.Reference + " ***");
 			
 			//get all component children of current node, check if any one of them matches the rNode
-			UaNode refNode, matchingNode = null;
-			UaReference[] references = currentNode.getReferences();
-			for(UaReference ref : references) {
-				refNode = ref.getOppositeNode(currentNode);
-				if(rNode.MatchesWithUaNode(refNode)) {
-					System.out.println("Found matching node: " + refNode.getBrowseName().getName());
-					matchingNode = refNode;
-					break;
-				}
-			}
+			UaNode matchingNode = findChildNode(rNode, currentNode, ts);
 			
 			if(matchingNode != null) {
 				currentNode = matchingNode;
 			}
 			else {
-				System.out.println("Creating a new folder node with a reference: " + rNode.matchingNodeId);
+				System.out.println("Creating a new object node with a reference: " + rNode.MatchingNodeId);
 				//create a node to match rNode
-				ASNodeManager nm = ts.getNodeManager();
+				UaNode sourceNode = ts.getTargetServerAddressSpace().getNode(rNode.MatchingNodeId);
 				
-				UaNode sourceNode = ts.getTargetServerAddressSpace().getNode(rNode.matchingNodeId);
+				UaNode mappedNode = copyNode(rNode, sourceNode, currentNode, ts);
 				
-				String name = rNode.Name != null ? rNode.Name : sourceNode.getBrowseName().getName();
+				if(sourceNode.getNodeClass().equals(NodeClass.Variable)) {
+					ts.client.relaySubscription(sourceNode.getNodeId(), Attributes.Value);
+					ts.client.storeMonitoredIdPair(sourceNode.getNodeId(), mappedNode.getNodeId());
+					if (mappedNode.supportsAttribute(Attributes.AccessLevel)) {
+						//nodeAccessLevels.put(mappedNode, ((UaVariable)mappedNode).getAccessLevel());
+						((UaVariable)mappedNode).setAccessLevel(AccessLevel.READWRITE);				
+					}
+				}
 				
-				NodeId newId = new NodeId(nm.getNamespaceIndex(), name + UUID.randomUUID());
-				//TODO: get ObjectTypeNode from rNode instead of using FolderTypeNode!!
-				//TODO: add attributes and other additional values from rNode
-		        FolderTypeNode mappedNode = nm.createInstance(FolderTypeNode.class, name, newId);
-		        nm.addNodeAndReference(currentNode, mappedNode, Identifiers.Organizes);
 		        currentNode = mappedNode;
 			}
+	        System.out.println("*** Node mapped ***");
+	        System.out.println();
+		}
+		
+		//If the rule is a "deep copy", create all children nodes of the last rule node
+		if(mRule.OriginalRule.Type.toLowerCase().equals("deep copy")) {
+			System.out.println("*** Mapping children nodes for Deep Copy ***");
 			
+			LHSRuleNode lastRuleNode = mRule.LHSNodes.get(mRule.LHSNodes.size() - 1);
+			UaNode sourceNode = ts.getTargetServerAddressSpace().getNode(lastRuleNode.MatchingNodeId);
+			
+			deepCopyNodes(sourceNode, currentNode, ts);
+			
+			System.out.println("*** Mapping children nodes done ***");
+	        System.out.println();
 		}
 	}
 	
-	private void mapVariableNode(NodeId nodeId, AddressSpace as, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
-		UaNode sourceNode = as.getNode(nodeId);
+	//recursive method for deep copying from 'sourceNode' to 'parent'
+	private UaNode deepCopyNodes(UaNode sourceNode, UaNode parentNode, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
+		UaNode mappedNode = null;
 		
-		//get source parent node
-		UaNode sourceParentNode = sourceNode.getReference(hasComponentId, true).getSourceNode();
+		UaNode[] components = sourceNode.getComponents();
 		
-		//get or create a target parent node
-		UaNode targetParent = createOrGetObjectNode(sourceParentNode, ts.getNodeManager());
-		
-		UaNode newNode = createVariableNode(sourceNode, targetParent, ts.getNodeManager());
-		
-		ts.getNodeManager().InsertMappedNode(newNode.getNodeId(), nodeId);
-	}
-	
-	private UaNode createOrGetObjectNode(UaNode sourceNode, ASNodeManager nm) {
-		//find this node if it's already created
-		//based on the rule we're in somehow?
-		
-		UaNode sourceParentNode = sourceNode.getReference(hasComponentId, true).getSourceNode();
-		if(sourceParentNode == null)
-		{
-			
-			
+		for(UaNode component : components) {
+			mappedNode = copyNode(new RHSRuleNode(""), component, parentNode, ts);
+			deepCopyNodes(component, mappedNode, ts);
 		}
 		
-		//else create a new node, and find it's parent node (recurse)
-		NodeId newId = new NodeId(nm.getNamespaceIndex(), UUID.randomUUID());
-		
-		
-		
-		return null;
+		return mappedNode;
 	}
 	
-	private UaType createOrGetTypeNode() {
-		return null;
+	private UaNode findChildNode(RHSRuleNode rNode, UaNode parentNode, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
+		UaNode refNode, matchingNode = null;
+		UaReference[] references = parentNode.getReferences();
+		
+		for(UaReference ref : references) {
+			refNode = ref.getOppositeNode(parentNode);
+			if(rNode.MatchWithUaNode(refNode, ts)) {
+				System.out.println("Found matching node: " + refNode.getBrowseName().getName());
+				matchingNode = refNode;
+				break;
+			}
+		}
+		
+		return matchingNode;
+	}
+	
+	private UaNode copyNode(RHSRuleNode rNode, UaNode sourceNode, UaNode parentNode, TargetServer ts) throws StatusException, ServiceException, AddressSpaceException {
+		UaNode mappedNode = null;
+		ASNodeManager nm = ts.getNodeManager();
+
+		String browseName = rNode.Name;
+		String displayName = rNode.Name;
+		String typeName = rNode.Type;
+		
+		//if this has a source node, fill out the missing information
+		if(sourceNode != null) {
+			if(browseName == null)
+				browseName = sourceNode.getBrowseName().getName();
+			
+			if(displayName == null)
+				displayName = sourceNode.getDisplayName().getText();
+			
+			//get or create the node type
+			UaReference typeReference = sourceNode.getReference(hasTypeDefId, false);
+			if(typeName == null && typeReference != null)
+				typeName = typeReference.getTargetNode().getBrowseName().getName();
+		}
+		
+		UaObjectType nodeType = createOrGetObjectTypeNode(typeName, ts);
+
+		//if this has a source node, create a copy of the source node
+		if(sourceNode != null) {
+			//map object node
+			if(sourceNode.getNodeClass().equals(NodeClass.Object)) {
+				mappedNode = nm.CreateComponentObjectNode(browseName, displayName, nodeType, parentNode);
+				nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
+			}
+			
+			//map variable node
+			if(sourceNode.getNodeClass().equals(NodeClass.Variable)) {
+				UaVariable varNode = (UaVariable)sourceNode;
+				mappedNode = nm.CreateComponentVariableNode(browseName, displayName, nodeType, varNode.getDataTypeId(), varNode.getValue(), parentNode);
+				nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
+				
+			}
+
+			//copy attribute table
+			NodeAttributes nodeAttrs = sourceNode.getAttributes().clone();
+			mappedNode.setAttributes(nodeAttrs);
+		}
+		else { //create a completely new node - always an object node
+			mappedNode = nm.CreateComponentObjectNode(browseName, displayName, nodeType, parentNode);
+		}
+		
+		//add rest of the attributes and other additional values from rNode
+		for(RuleAttribute rAttr : rNode.Attributes) {
+			//figure out the attribute value
+			Object value = rAttr.Value;
+			if(rAttr.Reference != null) {
+				UaNode attributeSourceNode = ts.getTargetServerAddressSpace().getNode(rAttr.MatchingNodeId);
+				switch(rAttr.ReferenceAttributeName) {
+					case("DisplayName"):
+						value = attributeSourceNode.getDisplayName().getText();
+						break;
+					case("BrowseName"):
+						value = attributeSourceNode.getBrowseName().getName();
+						break;
+					default:
+						break;
+				}
+			}
+			
+			switch(rAttr.AttributeName) {
+				case("DisplayName"):
+					mappedNode.setDisplayName(new LocalizedText((String)value, Locale.ENGLISH));
+					break;
+				case("BrowseName"):
+					mappedNode.setBrowseName(new QualifiedName(nm.getNamespaceIndex(), (String)value));
+					break;
+				default:
+					break;
+			}
+		}
+        
+		return mappedNode;
+	}
+	
+	private UaObjectType createOrGetObjectTypeNode(String name, TargetServer ts) throws StatusException {
+		ASNodeManager nm = ts.getNodeManager();
+
+		UaObjectType type = nm.ContainsObjectType(name);
+		
+		if(type == null)
+			type = nm.CreateObjectTypeNode(name);
+		
+		return type;
 	}
 	
 	private UaVariable createVariableNode(UaNode sourceNode, UaNode targetParent, ASNodeManager nm) throws StatusException {
