@@ -3,8 +3,8 @@ package fi.opc.ua.rules;
 public class Rule {
 	
 	public Rule(String lhs, String rhs, String type) {
-		this.LHS = lhs.replaceAll("\\s","");
-		this.RHS = rhs.replaceAll("\\s","");
+		this.LHS = lhs;//.replaceAll("\\s","");
+		this.RHS = rhs;//.replaceAll("\\s","");
 		this.Type = type;
 	}
 	
