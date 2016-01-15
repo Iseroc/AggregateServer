@@ -66,13 +66,13 @@ public class RuleAttribute {
 		System.out.println("## Raw: " + rhsRaw);
 		if(rhsRaw.contains("{")) {
 			//DisplayName = {#2@DisplayName}.{#3@DisplayName} {#3@EngineeringUnits}
-			String[] attrs = rhsString.split("\\{");
-			for(int i = 0; i < attrs.length; i++) {
+			String[] attrs = rhsRaw.split("\\{");
+			for(int i = 1; i < attrs.length; i++) {
 				System.out.println("## ## " + attrs[i]);
 				//#2@DisplayName}.
 				String[] split = attrs[i].split("\\}");
 				
-				rhsString += referenceValues[i];
+				rhsString += referenceValues[i - 1];
 				if(split.length == 2)
 					rhsString += split[1];
 			}
