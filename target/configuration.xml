@@ -7,5 +7,5 @@
 	<!--<node subscriptionType="Reporting">J1939Tractor.EngFuelRate, L/h</node>-->
 	<!--<node subscriptionType="Reporting">J1939Tractor.CropAmount, kg</node>-->
 	<!--<node subscriptionType="Reporting">J1939Tractor.CropMoisture, %</node>-->
-	<node subscriptionType="Reporting">FT1001</node>
+	<node subscriptionType="Reporting">Total time measurement</node>
 </nodes>

@@ -340,7 +340,7 @@ public class ASNodeManager extends NodeManagerUaNode {
 		return node;
 	}
 	
-	public UaNode CreateComponentVariableNode(String browseName, String displayName, UaType type, NodeId dataTypeId, DataValue value, UaNode parent) throws StatusException {
+	public UaNode CreateComponentVariableNode(String browseName, String displayName, NodeId dataTypeId, DataValue value, UaNode parent) throws StatusException {
 		final NodeId nodeId = new NodeId(getNamespaceIndex(), displayName + UUID.randomUUID());
 		//UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.PropertyType);
 		//UaNode node = this.getNodeFactory().createNode(NodeClass.Variable, nodeId, name, Locale.ENGLISH, Identifiers.BaseDataVariableType);
@@ -352,6 +352,17 @@ public class ASNodeManager extends NodeManagerUaNode {
 		
 		parent.addComponent(node);
 		
+		return node;
+	}
+	
+	public FolderTypeNode CreateFolderNode(String browseName, String displayName, UaNode parent) throws StatusException {
+		final NodeId nodeId = new NodeId(getNamespaceIndex(), displayName + UUID.randomUUID());
+		
+        FolderTypeNode node = this.createInstance(FolderTypeNode.class, displayName, nodeId);
+        this.addNodeAndReference(parent, node, Identifiers.Organizes);
+
+        node.setBrowseName(new QualifiedName(getNamespaceIndex(), browseName));
+        
 		return node;
 	}
 	

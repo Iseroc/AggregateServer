@@ -15,17 +15,25 @@ public class LHSRuleNode extends RuleNode {
 	}
 	
 	//**Public methods**
-	public boolean MatchWithUaNode(UaNode node) {
+	public boolean MatchWithUaNode(UaNode node, boolean debug) {
 		//match name
-		if(Name != null && Name != "" && !node.getBrowseName().getName().equals(Name))
+		if(Name != null && Name != "" && !node.getBrowseName().getName().equals(Name)) {
+			if(debug)
+				System.out.println("Name match failed: " + Name + " - " + node.getBrowseName().getName());
+			
 			return false;
+		}
 		
 		//match type
 		UaReference typeRef = node.getReference(Identifiers.HasTypeDefinition, false);
-		if(Type != null && Type != "" && typeRef != null && !typeRef.getTargetNode().getBrowseName().getName().equals(Type))
+		if(Type != null && Type != "" && typeRef != null && !typeRef.getTargetNode().getBrowseName().getName().equals(Type)) {
+			if(debug)
+				System.out.println("Type match failed: " + Type + " - " + typeRef != null ? typeRef.getTargetNode().getBrowseName().getName() : "(no typeRef)");
+			
 			return false;
+		}
 		
-		//TODO: match attributes
+		//TODO: match attributes and properties
 		
 		//matches, save matching node id
 		this.MatchingNodeId = node.getNodeId();

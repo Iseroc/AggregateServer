@@ -11,6 +11,7 @@ import com.prosysopc.ua.ServiceException;
 import com.prosysopc.ua.client.AddressSpace;
 import com.prosysopc.ua.client.AddressSpaceException;
 import com.prosysopc.ua.nodes.UaNode;
+import com.prosysopc.ua.nodes.UaReference;
 
 public class MatchingRule {
 	private NodeId hasComponentId = new NodeId(0,47);
@@ -34,10 +35,17 @@ public class MatchingRule {
 		mRule.OriginalRule = rule;
 		mRule.parseRuleLHS(rule);
 		
-		//System.out.println("Matching with: " + rule.LHS + "=" + rule.RHS);
+		boolean debug = false;
+		
+		if(nodeId.toString().equals("ns=2;i=50056") || nodeId.toString().equals("ns=2;i=50057") || nodeId.toString().equals("ns=2;i=50058")) {
+			System.out.println();
+			System.out.println("Matching node: " + nodeId);
+			System.out.println("Matching with: " + rule.LHS + "=" + rule.RHS);
+			debug = true;
+		}
 		
 		UaNode sourceNode = as.getNode(nodeId);
-		if(mRule.matchWithNode(sourceNode, 0)) {
+		if(mRule.matchWithNode(sourceNode, 0, debug)) {
 			mRule.parseRuleRHS();
 			return mRule;
 		}
@@ -75,27 +83,44 @@ public class MatchingRule {
 			
 			//TODO: find attribute references
 			for(RuleAttribute rAttr : rhsNode.Attributes) {
-				rAttr.MatchingNodeId = LHSNodeReferences.get(rAttr.Reference);
+				if(rAttr.Reference != null) {
+					rAttr.MatchingNodeId = new NodeId[rAttr.Reference.length];
+					for(int i = 0; i < rAttr.Reference.length; i++) {
+						rAttr.MatchingNodeId[i] = LHSNodeReferences.get(rAttr.Reference[i]);
+					}
+				}
+				
 			}
 		}
 	}
 	
-	private boolean matchWithNode(UaNode node, int index) throws ServiceException, AddressSpaceException {
-		//reached the end of LHSNodes rule list
-		if(index >= LHSNodes.size())
-			return true;
-
+	private boolean matchWithNode(UaNode node, int index, boolean debug) throws ServiceException, AddressSpaceException {
+		LHSRuleNode lrn = this.LHSNodes.get(LHSNodes.size() - index - 1);
+		
+		if(debug) {
+			System.out.println("## matchWithNode: " + node);
+			System.out.println("## matchWithNode: " + lrn.raw);
+		}
+		
 		//does the given node match the node at LHSNodes size-index?
-		if(this.LHSNodes.get(LHSNodes.size() - index - 1).MatchWithUaNode(node)) {
+		if(lrn.MatchWithUaNode(node, debug)) {
 			
 			//node matches, add possible references to reference map
-			if(this.LHSNodes.get(LHSNodes.size() - index - 1).Reference != null)
-				this.LHSNodeReferences.put(this.LHSNodes.get(LHSNodes.size() - index - 1).Reference, node.getNodeId());
+			if(lrn.Reference != null)
+				this.LHSNodeReferences.put(lrn.Reference, node.getNodeId());
 			
-			//get source parent node
-			UaNode sourceParentNode = node.getReference(hasComponentId, true).getSourceNode();
+			//reached the end of LHSNodes rule list
+			if(index + 1 >= LHSNodes.size())
+				return true;
 			
-			return matchWithNode(sourceParentNode, index+1);
+			//get source parent node, if none found, does not match the rule
+			UaReference parentRef = node.getReference(hasComponentId, true);
+			if(parentRef == null)
+				return false;
+			
+			UaNode sourceParentNode = parentRef.getSourceNode();
+			
+			return matchWithNode(sourceParentNode, index+1, debug);
 		}
 		
 		//this node does not match rule

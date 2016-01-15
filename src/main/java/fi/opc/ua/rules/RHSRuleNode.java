@@ -23,7 +23,7 @@ public class RHSRuleNode extends RuleNode {
 		String browseName = this.Name;
 		String displayName = null;
 		String type = this.Type;
-		//TODO: attribute comparison too
+		//TODO: attribute and property comparison required too
 		
 		if(this.MatchingNodeId != null) {
 			UaNode matchingNode = ts.getTargetServerAddressSpace().getNode(this.MatchingNodeId);
@@ -38,7 +38,8 @@ public class RHSRuleNode extends RuleNode {
 				UaReference typeRef = matchingNode.getReference(Identifiers.HasTypeDefinition, false);
 				if(typeRef != null) {
 					UaNode typeNode = typeRef.getTargetNode();
-					type = typeNode.getBrowseName().getName();
+					if(typeNode != null)
+						type = typeNode.getBrowseName().getName();
 				}
 			}
 		}
@@ -47,12 +48,12 @@ public class RHSRuleNode extends RuleNode {
 			return false;
 		}
 		
-		if(displayName!=null && !displayName.equals(node.getDisplayName().getText())) {
+		if(displayName != null && !displayName.equals(node.getDisplayName().getText())) {
 			return false;
 		}
 		
 		UaReference typeRef = node.getReference(Identifiers.HasTypeDefinition, false);
-		if(typeRef != null) {
+		if(type != null && typeRef != null) {
 			UaNode typeNode = typeRef.getTargetNode();
 			if(!type.equals(typeNode.getBrowseName().getName()))
 				return false;
