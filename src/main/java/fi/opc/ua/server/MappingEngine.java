@@ -6,14 +6,17 @@ import java.util.Locale;
 import java.util.Stack;
 import java.util.UUID;
 
+import org.opcfoundation.ua.builtintypes.DataValue;
 import org.opcfoundation.ua.builtintypes.ExpandedNodeId;
 import org.opcfoundation.ua.builtintypes.LocalizedText;
 import org.opcfoundation.ua.builtintypes.NodeId;
 import org.opcfoundation.ua.builtintypes.QualifiedName;
+import org.opcfoundation.ua.builtintypes.Variant;
 import org.opcfoundation.ua.common.ServiceResultException;
 import org.opcfoundation.ua.core.AccessLevel;
 import org.opcfoundation.ua.core.Attributes;
 import org.opcfoundation.ua.core.BrowseDirection;
+import org.opcfoundation.ua.core.EUInformation;
 import org.opcfoundation.ua.core.Identifiers;
 import org.opcfoundation.ua.core.NodeAttributes;
 import org.opcfoundation.ua.core.NodeClass;
@@ -73,6 +76,7 @@ public class MappingEngine {
 		sourceAddressSpace.setReferenceTypeId(Identifiers.HierarchicalReferences);
 		sourceAddressSpace.setBrowseDirection(BrowseDirection.Forward);
 		
+		//this is only for BoilerServer, other servers should not contain "MyObjects" -folder
 		NodeId myObjectsNodeId = null;
 		List<ReferenceDescription> refs = sourceAddressSpace.browse(root);
 		for(ReferenceDescription ref : refs) {
@@ -91,28 +95,30 @@ public class MappingEngine {
 	
 	//recursively browse and map node and all it's children
 	private void browseAndMapNode(NodeId nodeId, AddressSpace sourceAddressSpace, List<NodeId> idList, TargetServer ts) {
-		idList.add(nodeId);
-		System.out.print(".");
-		//System.out.println("Browsing node " + nodeId.toString());
-		try {
-			//map current node
-			mapNode(nodeId, sourceAddressSpace, ts);
-			
-			List<ReferenceDescription> references = sourceAddressSpace.browse(nodeId);
-			
-			//recur browse-and-map method for each children
-			for(ReferenceDescription ref : references) {
-				NodeId currentId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
-
-				browseAndMapNode(currentId, sourceAddressSpace, idList, ts);
+		if(!idList.contains(nodeId)) {
+			idList.add(nodeId);
+			System.out.print(".");
+			//System.out.println("Browsing node " + nodeId.toString());
+			try {
+				//map current node
+				mapNode(nodeId, sourceAddressSpace, ts);
+				
+				List<ReferenceDescription> references = sourceAddressSpace.browse(nodeId);
+				
+				//recur browse-and-map method for each children
+				for(ReferenceDescription ref : references) {
+					NodeId currentId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
+	
+					browseAndMapNode(currentId, sourceAddressSpace, idList, ts);
+				}
 			}
-		}
-		catch (Exception e) {
-			System.out.println("Problem mapping node with NodeId " + nodeId);
-			System.err.println(e.toString());
-			e.printStackTrace();
-			if (e.getCause() != null)
-				System.err.println("Caused by: " + e.getCause());
+			catch (Exception e) {
+				System.out.println("Problem mapping node with NodeId " + nodeId);
+				System.err.println(e.toString());
+				e.printStackTrace();
+				if (e.getCause() != null)
+					System.err.println("Caused by: " + e.getCause());
+			}
 		}
 	}
 	
@@ -301,7 +307,15 @@ public class MappingEngine {
 							for(UaReference propertyRef : properties) {
 								UaNode property = propertyRef.getTargetNode();
 								if(property != null && property.getBrowseName().getName().equals(rAttr.ReferenceAttributeName[i])) {
-									attrValues[i] = ((UaVariable)property).getValue().getValue().toString();
+									DataValue propValue = ((UaVariable)property).getValue();
+									String val = propValue.getValue().toString();
+									EUInformation info = null;
+									info = propValue.getValue().asClass(EUInformation.class, info);
+									if(info != null) {
+										val = info.getDisplayName().getText();
+										System.out.println("## I am an EUInformation");
+									}
+									attrValues[i] = val;
 								}
 							}
 							break;

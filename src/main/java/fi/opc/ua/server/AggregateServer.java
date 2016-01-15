@@ -552,8 +552,8 @@ public class AggregateServer {
         
         
         //TODO: TEMPORARY TESTING AUTOMAP
-		insertAndMapServer("opc.tcp://Rickenbacker2:52510/OPCUA/BoilerServer");
-//      insertAndMapServer("opc.tcp://10.100.23.4:4841");
+//		insertAndMapServer("opc.tcp://Rickenbacker2:52510/OPCUA/BoilerServer");
+		insertAndMapServer("opc.tcp://10.100.23.4:4841");
 		
         
         

@@ -23,10 +23,10 @@ public class RuleManager {
 		
 		//Boiler rules
 		Rule r = new Rule("[BoilerType]#1/[ControllerType]#2", "#1/#2", "Deep copy");
-//		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
-//		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
-		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3", "#1/#3(BrowseName={#2@BrowseName}.{#3@BrowseName},DisplayName={#2@DisplayName}.{#3@DisplayName})", "Copy");
-		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3", "#1/#3(BrowseName={#2@BrowseName}.{#3@BrowseName},DisplayName={#2@DisplayName}.{#3@DisplayName})", "Copy");
+		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
+		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
+//		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3", "#1/#3(BrowseName={#2@BrowseName}.{#3@BrowseName},DisplayName={#2@DisplayName}.{#3@DisplayName})", "Copy");
+//		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3", "#1/#3(BrowseName={#2@BrowseName}.{#3@BrowseName},DisplayName={#2@DisplayName}.{#3@DisplayName})", "Copy");
 		
 		//Transformed Boiler rules
 //		Rule r = new Rule("[BoilerType]#1/[ControllerType]#2", "#1/#2", "Deep copy");
