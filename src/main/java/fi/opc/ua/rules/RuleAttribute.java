@@ -41,10 +41,10 @@ public class RuleAttribute {
 		}
 		else {
 			//DisplayName = #2@DisplayName
-			this.Reference = new String[1];
-			this.ReferenceAttributeName = new String[1];
 			if(parts[1].contains("#")) {
+				this.Reference = new String[1];
 				this.Reference[0] = parts[1].substring(parts[1].indexOf("#") + 1, parts[1].indexOf("@"));
+				this.ReferenceAttributeName = new String[1];
 				this.ReferenceAttributeName[0] = parts[1].substring(parts[1].indexOf("@") + 1, parts[1].length());
 			}
 			else {
@@ -54,21 +54,21 @@ public class RuleAttribute {
 	}
 	
 	public String BuildRHSString(String[] referenceValues) {
-		System.out.print("## Build RHS String from refs: ");
-		for(String s : referenceValues) {
-			System.out.print(s + " ");
-		}
-		System.out.println();
+//		System.out.print("## Build RHS String from refs: ");
+//		for(String s : referenceValues) {
+//			System.out.print(s + " ");
+//		}
+//		System.out.println();
 		
 		String rhsString = "";
 		
 		String rhsRaw = this.raw.substring(this.raw.indexOf("=") + 1, this.raw.length());
-		System.out.println("## Raw: " + rhsRaw);
+//		System.out.println("## Raw: " + rhsRaw);
 		if(rhsRaw.contains("{")) {
 			//DisplayName = {#2@DisplayName}.{#3@DisplayName} {#3@EngineeringUnits}
 			String[] attrs = rhsRaw.split("\\{");
 			for(int i = 1; i < attrs.length; i++) {
-				System.out.println("## ## " + attrs[i]);
+//				System.out.println("## ## " + attrs[i]);
 				//#2@DisplayName}.
 				String[] split = attrs[i].split("\\}");
 				
