@@ -7,5 +7,8 @@
 	<!--<node subscriptionType="Reporting">J1939Tractor.EngFuelRate, L/h</node>-->
 	<!--<node subscriptionType="Reporting">J1939Tractor.CropAmount, kg</node>-->
 	<!--<node subscriptionType="Reporting">J1939Tractor.CropMoisture, %</node>-->
-	<node subscriptionType="Reporting">FT1001</node>
+	<!--node subscriptionType="Reporting">FT1001</node-->
+	<node subscriptionType="Reporting">Seed drill body.Total area measurement m²</node>
+	<node subscriptionType="Reporting">Seed drill body.Total distance measurement m</node>
+	<node subscriptionType="Reporting">Seed drill body.Total time measurement s</node>
 </nodes>

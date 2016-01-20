@@ -6,14 +6,17 @@ import java.util.Locale;
 import java.util.Stack;
 import java.util.UUID;
 
+import org.opcfoundation.ua.builtintypes.DataValue;
 import org.opcfoundation.ua.builtintypes.ExpandedNodeId;
 import org.opcfoundation.ua.builtintypes.LocalizedText;
 import org.opcfoundation.ua.builtintypes.NodeId;
 import org.opcfoundation.ua.builtintypes.QualifiedName;
+import org.opcfoundation.ua.builtintypes.Variant;
 import org.opcfoundation.ua.common.ServiceResultException;
 import org.opcfoundation.ua.core.AccessLevel;
 import org.opcfoundation.ua.core.Attributes;
 import org.opcfoundation.ua.core.BrowseDirection;
+import org.opcfoundation.ua.core.EUInformation;
 import org.opcfoundation.ua.core.Identifiers;
 import org.opcfoundation.ua.core.NodeAttributes;
 import org.opcfoundation.ua.core.NodeClass;
@@ -73,6 +76,7 @@ public class MappingEngine {
 		sourceAddressSpace.setReferenceTypeId(Identifiers.HierarchicalReferences);
 		sourceAddressSpace.setBrowseDirection(BrowseDirection.Forward);
 		
+		//this is only for BoilerServer, other servers should not contain "MyObjects" -folder
 		NodeId myObjectsNodeId = null;
 		List<ReferenceDescription> refs = sourceAddressSpace.browse(root);
 		for(ReferenceDescription ref : refs) {
@@ -82,6 +86,8 @@ public class MappingEngine {
 		
 		if(myObjectsNodeId != null)
 			browseAndMapNode(myObjectsNodeId, sourceAddressSpace, idList, ts);
+		else
+			browseAndMapNode(root, sourceAddressSpace, idList, ts);
 		
 		System.out.println("Done mapping address space: " + ts.nm.getNamespaceUri());
 		System.out.println();
@@ -89,31 +95,43 @@ public class MappingEngine {
 	
 	//recursively browse and map node and all it's children
 	private void browseAndMapNode(NodeId nodeId, AddressSpace sourceAddressSpace, List<NodeId> idList, TargetServer ts) {
-		idList.add(nodeId);
-		System.out.println("Browsing node " + nodeId.toString());
-		try {
-			//map current node
-			mapNode(nodeId, sourceAddressSpace, ts);
-			
-			List<ReferenceDescription> references = sourceAddressSpace.browse(nodeId);
-			
-			//recur browse-and-map method for each children
-			for(ReferenceDescription ref : references) {
-				NodeId currentId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
-
-				browseAndMapNode(currentId, sourceAddressSpace, idList, ts);
+		if(!idList.contains(nodeId)) {
+			idList.add(nodeId);
+			System.out.print(".");
+			//System.out.println("Browsing node " + nodeId.toString());
+			try {
+				//map current node
+				mapNode(nodeId, sourceAddressSpace, ts);
+				
+				List<ReferenceDescription> references = sourceAddressSpace.browse(nodeId);
+				
+				//recur browse-and-map method for each children
+				for(ReferenceDescription ref : references) {
+					NodeId currentId = sourceAddressSpace.getNamespaceTable().toNodeId(ref.getNodeId());
+	
+					browseAndMapNode(currentId, sourceAddressSpace, idList, ts);
+				}
 			}
-		}
-		catch (Exception e) {
-			System.out.println("Problem mapping node with NodeId " + nodeId);
-			System.err.println(e.toString());
-			e.printStackTrace();
-			if (e.getCause() != null)
-				System.err.println("Caused by: " + e.getCause());
+			catch (Exception e) {
+				System.out.println("Problem mapping node with NodeId " + nodeId);
+				System.err.println(e.toString());
+				e.printStackTrace();
+				if (e.getCause() != null)
+					System.err.println("Caused by: " + e.getCause());
+			}
 		}
 	}
 	
 	private void mapNode(NodeId nodeId, AddressSpace sourceAddressSpace, TargetServer ts) throws ServiceException, AddressSpaceException, StatusException {
+		//skip mapNode if the node is of PropertyType
+		UaNode sourceNode = sourceAddressSpace.getNode(nodeId);
+		UaReference typeRef = sourceNode.getReference(hasTypeDefId, false);
+		if(typeRef != null) {
+			UaNode typeNode = typeRef.getTargetNode();
+			if(typeNode != null && typeNode.getBrowseName().getName().equals("PropertyType"))
+				return;
+		}
+		
 		List<MatchingRule> matchingRules = ruleManager.MatchRules(nodeId, sourceAddressSpace);
 		
 		if(matchingRules.size() > 0) {
@@ -148,7 +166,10 @@ public class MappingEngine {
 				
 				UaNode mappedNode = copyNode(rNode, sourceNode, currentNode, ts);
 				
-				if(sourceNode.getNodeClass().equals(NodeClass.Variable)) {
+				//if the sourceNode is a variable node, set up a subscription
+				//this is not strictly necessary, but deemed the best way to set up IoT-Ticket data transfer
+				//should be eventually replaced by some other method related to turning on the IoT-Ticket client instead!
+				if(sourceNode != null && sourceNode.getNodeClass().equals(NodeClass.Variable)) {
 					ts.client.relaySubscription(sourceNode.getNodeId(), Attributes.Value);
 					ts.client.storeMonitoredIdPair(sourceNode.getNodeId(), mappedNode.getNodeId());
 					if (mappedNode.supportsAttribute(Attributes.AccessLevel)) {
@@ -225,16 +246,19 @@ public class MappingEngine {
 			
 			//get or create the node type
 			UaReference typeReference = sourceNode.getReference(hasTypeDefId, false);
-			if(typeName == null && typeReference != null)
-				typeName = typeReference.getTargetNode().getBrowseName().getName();
+			if(typeName == null && typeReference != null) {
+				UaNode typeNode = typeReference.getTargetNode();
+				if(typeNode != null)
+					typeName = typeNode.getBrowseName().getName();
+			}
 		}
 		
-		UaObjectType nodeType = createOrGetObjectTypeNode(typeName, ts);
-
 		//if this has a source node, create a copy of the source node
 		if(sourceNode != null) {
 			//map object node
 			if(sourceNode.getNodeClass().equals(NodeClass.Object)) {
+				UaObjectType nodeType = createOrGetObjectTypeNode(typeName, ts);
+
 				mappedNode = nm.CreateComponentObjectNode(browseName, displayName, nodeType, parentNode);
 				nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
 			}
@@ -242,7 +266,7 @@ public class MappingEngine {
 			//map variable node
 			if(sourceNode.getNodeClass().equals(NodeClass.Variable)) {
 				UaVariable varNode = (UaVariable)sourceNode;
-				mappedNode = nm.CreateComponentVariableNode(browseName, displayName, nodeType, varNode.getDataTypeId(), varNode.getValue(), parentNode);
+				mappedNode = nm.CreateComponentVariableNode(browseName, displayName, varNode.getDataTypeId(), varNode.getValue(), parentNode);
 				nm.InsertMappedNode(mappedNode.getNodeId(), sourceNode.getNodeId());
 				
 			}
@@ -251,27 +275,56 @@ public class MappingEngine {
 			NodeAttributes nodeAttrs = sourceNode.getAttributes().clone();
 			mappedNode.setAttributes(nodeAttrs);
 		}
-		else { //create a completely new node - always an object node
-			mappedNode = nm.CreateComponentObjectNode(browseName, displayName, nodeType, parentNode);
+		else {
+			//if no type name given for a new node, create a folder node
+			if(typeName == null) {
+				mappedNode = nm.CreateFolderNode(browseName, displayName, parentNode);
+			}
+			else { //else create a new object node
+				UaObjectType nodeType = createOrGetObjectTypeNode(typeName, ts);
+				mappedNode = nm.CreateComponentObjectNode(browseName, displayName, nodeType, parentNode);
+			}
 		}
 		
 		//add rest of the attributes and other additional values from rNode
 		for(RuleAttribute rAttr : rNode.Attributes) {
+			String[] attrValues = null;
+			
 			//figure out the attribute value
-			Object value = rAttr.Value;
 			if(rAttr.Reference != null) {
-				UaNode attributeSourceNode = ts.getTargetServerAddressSpace().getNode(rAttr.MatchingNodeId);
-				switch(rAttr.ReferenceAttributeName) {
-					case("DisplayName"):
-						value = attributeSourceNode.getDisplayName().getText();
-						break;
-					case("BrowseName"):
-						value = attributeSourceNode.getBrowseName().getName();
-						break;
-					default:
-						break;
+				attrValues = new String[rAttr.Reference.length];
+				for(int i = 0; i < rAttr.Reference.length; i++) {
+					UaNode attributeSourceNode = ts.getTargetServerAddressSpace().getNode(rAttr.MatchingNodeId[i]);
+					switch(rAttr.ReferenceAttributeName[i]) {
+						case("DisplayName"):
+							attrValues[i] = attributeSourceNode.getDisplayName().getText();
+							break;
+						case("BrowseName"):
+							attrValues[i] = attributeSourceNode.getBrowseName().getName();
+							break;
+						default:
+							UaReference[] properties = attributeSourceNode.getReferences(Identifiers.HasProperty, false);
+							for(UaReference propertyRef : properties) {
+								UaNode property = propertyRef.getTargetNode();
+								if(property != null && property.getBrowseName().getName().equals(rAttr.ReferenceAttributeName[i])) {
+									DataValue propValue = ((UaVariable)property).getValue();
+									String val = propValue.getValue().toString();
+									EUInformation info = null;
+									info = propValue.getValue().asClass(EUInformation.class, info);
+									if(info != null) {
+										val = info.getDisplayName().getText();
+										System.out.println("## I am an EUInformation");
+									}
+									attrValues[i] = val;
+								}
+							}
+							break;
+					}
 				}
 			}
+			
+			
+			Object value = rAttr.BuildRHSString(attrValues);
 			
 			switch(rAttr.AttributeName) {
 				case("DisplayName"):
