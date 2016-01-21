@@ -23,28 +23,33 @@ public class RuleManager {
 		
 		//Boiler rules
 //		Rule r = new Rule("[BoilerType]#1/[ControllerType]#2", "#1/#2", "Deep copy");
-//		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
-//		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
+		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
+		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3", "#1/#3(BrowseName=#2@BrowseName,DisplayName=#2@DisplayName)", "Copy");
+
+		//Multi-part name test rules
 //		Rule r2 = new Rule("[BoilerType]#1/[PipeType]/[FTType]#2/DataItem#3", "#1/#3(BrowseName={#2@BrowseName}.{#3@BrowseName},DisplayName={#2@DisplayName}.{#3@DisplayName})", "Copy");
 //		Rule r3 = new Rule("[BoilerType]#1/[DrumType]/[LIType]#2/DataItem#3", "#1/#3(BrowseName={#2@BrowseName}.{#3@BrowseName},DisplayName={#2@DisplayName}.{#3@DisplayName})", "Copy");
 		
 		//Transformed Boiler rules
 		Rule r = new Rule("[BoilerType]#1/[ControllerType]#2", "#1/#2", "Deep copy");
-		Rule r2 = new Rule("[BoilerType]#1/FT1001#2", "#1/[PipeType]Pipe1001/[FTType]FT1001/#2(BrowseName=DataItem,DisplayName=DataItem)", "Copy");
-		Rule r3 = new Rule("[BoilerType]#1/LI1001#2", "#1/[DrumType]Drum1001/[LIType]LI1001/#2(BrowseName=DataItem,DisplayName=DataItem)", "Copy");
-		Rule r4 = new Rule("[BoilerType]#1/LI1001#2", "#1/[PipeType]Pipe1002/[FTType]FT1002/#2(BrowseName=DataItem,DisplayName=DataItem)", "Copy");
+		Rule r4 = new Rule("[BoilerType]#1/FT1001#2", "#1/[PipeType]Pipe1001/[FTType]FT1001/#2(BrowseName=DataItem,DisplayName=DataItem)", "Copy");
+		Rule r5 = new Rule("[BoilerType]#1/LI1001#2", "#1/[DrumType]Drum1001/[LIType]LI1001/#2(BrowseName=DataItem,DisplayName=DataItem)", "Copy");
+		Rule r6 = new Rule("[BoilerType]#1/LI1001#2", "#1/[PipeType]Pipe1002/[FTType]FT1002/#2(BrowseName=DataItem,DisplayName=DataItem)", "Copy");
 		
 		rs.AddRule(r);
 		rs.AddRule(r2);
 		rs.AddRule(r3);
 		rs.AddRule(r4);
+		rs.AddRule(r5);
+		rs.AddRule(r6);
 		
 		ruleSets.add(rs);
 
 		//ISOUS rules
 		RuleSet rs2 = new RuleSet("UaDemoserver");
-		Rule r5 = new Rule("[ISOBUSDeviceType]#1/[ISOBUSDeviceElementType]#2/ParameterSet/#3", "Tractors/#1/#2/#3(DisplayName={#2@DisplayName}.{#3@DisplayName} {#3@EngineeringUnits})", "Copy");
-		rs2.AddRule(r5);
+//		Rule r7 = new Rule("[ISOBUSDeviceType]#1/[ISOBUSDeviceElementType]#2/ParameterSet/#3", "Tractors/#1/#2/#3(DisplayName={#2@DisplayName}.{#3@DisplayName} {#3@EngineeringUnits})", "Copy");
+		Rule r7 = new Rule("[ISOBUSDeviceType]#1/[ISOBUSDeviceElementType]#2/ParameterSet/#3", "Enterprises/clafis/Vakola/#1/#2/#3(DisplayName={#2@DisplayName}.{#3@DisplayName} {#3@EngineeringUnits})", "Copy");
+		rs2.AddRule(r7);
 		
 		ruleSets.add(rs2);
 	}
